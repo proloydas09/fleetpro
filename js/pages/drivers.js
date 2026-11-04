@@ -185,11 +185,20 @@ function renderDriverDetailContent(driverId) {
             <div class="doc-name">Driving License</div>
             <div class="doc-exp ${licenseStatus.cls}">${driver.license} • ${licenseStatus.label}</div>
           </div>
+          ${driver.licensePhoto ? `<button class="btn btn-sm btn-outline" onclick="showDriverLicensePhoto('${driverId}')">View Photo</button>` : ''}
+        </div>
+        <div class="doc-card" style="margin-bottom:8px;">
+          <div class="doc-icon">🪪</div>
+          <div class="doc-info">
+            <div class="doc-name">Aadhaar Card</div>
+            <div class="doc-exp">${driver.aadhaarNo ? `•••• •••• ${driver.aadhaarNo.slice(-4)}` : 'Number not provided'}</div>
+          </div>
+          ${driver.aadhaarCard ? `<button class="btn btn-sm btn-outline" onclick="showDriverAadhaarCard('${driverId}')">View</button>` : ''}
         </div>
         <div class="doc-card" style="margin-bottom:8px;">
           <div class="doc-icon">📍</div>
           <div class="doc-info">
-            <div class="doc-name">Address</div>
+            <div class="doc-name">Present Address</div>
             <div class="doc-exp">${driver.address}</div>
           </div>
         </div>
@@ -263,16 +272,38 @@ function showAddDriverModal() {
         <input class="form-input" id="new-drv-phone" type="tel" placeholder="+91 98765 43210" />
       </div>
       <div class="form-group">
-        <label class="form-label">License Number</label>
+        <label class="form-label" for="new-drv-aadhaar">Aadhaar Number</label>
+        <input class="form-input" id="new-drv-aadhaar" type="text" inputmode="numeric" autocomplete="off" maxlength="12" pattern="[0-9]{12}" placeholder="12-digit Aadhaar number" />
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="new-drv-license">License No</label>
         <input class="form-input" id="new-drv-license" placeholder="e.g. BR1420200012345" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Upload License Photo</label>
+        <div class="upload-area" onclick="document.getElementById('drv-license-input').click()">
+          <div class="upload-icon">📋</div>
+          <div class="upload-text">Tap to <strong>upload license photo</strong> (image, max 5MB)</div>
+          <input type="file" id="drv-license-input" accept="image/*" style="display:none" />
+        </div>
+        <div id="drv-license-preview"></div>
       </div>
       <div class="form-group">
         <label class="form-label">License Expiry</label>
         <input class="form-input" id="new-drv-lic-exp" type="date" />
       </div>
       <div class="form-group">
-        <label class="form-label">Address</label>
+        <label class="form-label" for="new-drv-address">Present Address</label>
         <input class="form-input" id="new-drv-address" placeholder="City, Area" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Upload Aadhaar Card</label>
+        <div class="upload-area" onclick="document.getElementById('drv-aadhaar-input').click()">
+          <div class="upload-icon">🪪</div>
+          <div class="upload-text">Tap to <strong>upload Aadhaar card</strong> (image or PDF, max 5MB)</div>
+          <input type="file" id="drv-aadhaar-input" accept="image/*,application/pdf" style="display:none" />
+        </div>
+        <div id="drv-aadhaar-preview"></div>
       </div>
       <div class="form-row">
         <div class="form-group">
@@ -300,6 +331,10 @@ function showAddDriverModal() {
     </div>
   `);
 
+  window._drvPhotoB64 = null;
+  window._drvLicensePhotoB64 = null;
+  window._drvAadhaarCardB64 = null;
+
   // Handle photo upload preview
   const inp = document.getElementById('drv-photo-input');
   if (inp) {
@@ -310,17 +345,109 @@ function showAddDriverModal() {
       `;
     });
   }
+
+  const licenseInput = document.getElementById('drv-license-input');
+  if (licenseInput) {
+    handleImageUpload(licenseInput, (b64) => {
+      window._drvLicensePhotoB64 = b64;
+      const preview = document.getElementById('drv-license-preview');
+      if (preview) {
+        preview.innerHTML = `
+          <img src="${b64}" alt="Driving license photo preview" style="width:100%;border-radius:10px;margin-top:8px;max-height:180px;object-fit:contain;" />
+        `;
+      }
+    });
+  }
+
+  const aadhaarInput = document.getElementById('drv-aadhaar-input');
+  if (aadhaarInput) handleAadhaarCardUpload(aadhaarInput);
+}
+
+function showDriverLicensePhoto(driverId) {
+  const driver = getDriverById(driverId);
+  if (driver && driver.licensePhoto) viewImage(driver.licensePhoto, 'Driving License');
+}
+
+function handleAadhaarCardUpload(inputEl) {
+  inputEl.addEventListener('change', async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      window._drvAadhaarCardB64 = null;
+      document.getElementById('drv-aadhaar-preview').innerHTML = '';
+      showToast('Aadhaar card file too large (max 5MB)', 'error');
+      inputEl.value = '';
+      return;
+    }
+    if (!file.type.startsWith('image/') && file.type !== 'application/pdf') {
+      window._drvAadhaarCardB64 = null;
+      document.getElementById('drv-aadhaar-preview').innerHTML = '';
+      showToast('Please upload an image or PDF of the Aadhaar card', 'error');
+      inputEl.value = '';
+      return;
+    }
+
+    try {
+      const b64 = await fileToBase64(file);
+      window._drvAadhaarCardB64 = b64;
+      const preview = document.getElementById('drv-aadhaar-preview');
+      if (!preview) return;
+      if (file.type === 'application/pdf') {
+        preview.innerHTML = `
+          <a href="${b64}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline" style="margin-top:8px;">View uploaded Aadhaar PDF</a>
+        `;
+      } else {
+        preview.innerHTML = `
+          <img src="${b64}" alt="Aadhaar card preview" style="width:100%;border-radius:10px;margin-top:8px;max-height:180px;object-fit:contain;" />
+        `;
+      }
+    } catch (error) {
+      console.error('Failed to read Aadhaar card file.', error);
+      window._drvAadhaarCardB64 = null;
+      const preview = document.getElementById('drv-aadhaar-preview');
+      if (preview) preview.innerHTML = '';
+      showToast('Could not read Aadhaar card file. Please try again.', 'error');
+    }
+  });
+}
+
+function showDriverAadhaarCard(driverId) {
+  const driver = getDriverById(driverId);
+  if (!driver || !driver.aadhaarCard) return;
+
+  if (driver.aadhaarCard.startsWith('data:application/pdf')) {
+    openModal(`
+      <div class="modal-sheet">
+        <div class="modal-handle"></div>
+        <h2 class="modal-title">Aadhaar Card</h2>
+        <iframe src="${driver.aadhaarCard}" title="Aadhaar card PDF" style="width:100%;height:65vh;border:0;border-radius:10px;"></iframe>
+        <button class="btn btn-ghost btn-full" onclick="closeModal()" style="margin-top:12px;">Close</button>
+      </div>
+    `);
+    return;
+  }
+
+  viewImage(driver.aadhaarCard, 'Aadhaar Card');
 }
 
 function addNewDriver() {
   const name = document.getElementById('new-drv-name').value.trim();
   const phone = document.getElementById('new-drv-phone').value.trim();
   if (!name || !phone) { showToast('Name and phone are required', 'error'); return; }
+  const aadhaarNo = document.getElementById('new-drv-aadhaar').value.trim();
+  if (aadhaarNo && !/^\d{12}$/.test(aadhaarNo)) {
+    showToast('Aadhaar number must be exactly 12 digits', 'error');
+    return;
+  }
   const driver = {
     id: generateId('d'),
     name,
     phone,
+    aadhaarNo,
+    aadhaarCard: window._drvAadhaarCardB64 || null,
     license: document.getElementById('new-drv-license').value.trim(),
+    licensePhoto: window._drvLicensePhotoB64 || null,
     licenseExpiry: document.getElementById('new-drv-lic-exp').value || '2030-01-01',
     address: document.getElementById('new-drv-address').value.trim(),
     joinDate: new Date().toISOString().split('T')[0],
@@ -337,6 +464,8 @@ function addNewDriver() {
   };
   DB.drivers.push(driver);
   window._drvPhotoB64 = null;
+  window._drvLicensePhotoB64 = null;
+  window._drvAadhaarCardB64 = null;
   closeModal();
   showToast(`${name} added as driver! 👨‍✈️`, 'success');
   renderDrivers();

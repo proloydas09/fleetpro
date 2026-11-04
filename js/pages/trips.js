@@ -137,6 +137,30 @@ function showTripDetail(tripId) {
           <div class="stat-value green">${formatCurrency(netEarning)}</div>
         </div>
       </div>
+      ${(t.startKm !== undefined && t.startKm !== null) || (t.endKm !== undefined && t.endKm !== null) ? `
+        <div class="doc-card" style="margin-bottom:10px;">
+          <div class="doc-icon">🛣️</div>
+          <div class="doc-info">
+            <div class="doc-name">Odometer Readings</div>
+            <div class="doc-exp">Start: ${t.startKm ?? '–'} km${t.endKm !== undefined && t.endKm !== null ? ` • End: ${t.endKm} km` : ''}</div>
+          </div>
+        </div>
+      ` : ''}
+      ${t.status === 'current' ? `
+        <div class="doc-card" style="margin-bottom:10px;">
+          <div class="doc-icon">📍</div>
+          <div class="doc-info">
+            <div class="doc-name">Current Trip</div>
+            <div class="doc-exp">In progress • Live GPS location is not available</div>
+          </div>
+        </div>
+      ` : ''}
+      ${(t.startOdometerPhoto || t.endOdometerPhoto) ? `
+        <div style="display:flex;gap:10px;margin-bottom:10px;">
+          ${t.startOdometerPhoto ? `<button class="btn btn-outline btn-full" onclick="showTripOdometerPhoto('${t.id}', 'start')">View Start Odometer</button>` : ''}
+          ${t.endOdometerPhoto ? `<button class="btn btn-outline btn-full" onclick="showTripOdometerPhoto('${t.id}', 'end')">View End Odometer</button>` : ''}
+        </div>
+      ` : ''}
       ${driver ? `
         <div class="doc-card" style="margin-bottom:10px;">
           <div class="doc-icon">👨‍✈️</div>
@@ -144,6 +168,7 @@ function showTripDetail(tripId) {
             <div class="doc-name">Driver</div>
             <div class="doc-exp">${driver.name} • ${driver.phone}</div>
           </div>
+          <a class="btn btn-sm btn-outline" href="tel:${driver.phone.replace(/[^\d+]/g, '')}">Call</a>
         </div>
       ` : ''}
       ${car ? `
@@ -164,12 +189,41 @@ function showTripDetail(tripId) {
           </div>
         </div>
       ` : ''}
+      ${t.customerName || t.customerPhone ? `
+        <div class="doc-card" style="margin-bottom:10px;">
+          <div class="doc-icon">👤</div>
+          <div class="doc-info">
+            <div class="doc-name">Customer</div>
+            <div class="doc-exp">${t.customerName || 'Name not provided'}${t.customerPhone ? ` • ${t.customerPhone}` : ''}</div>
+          </div>
+        </div>
+      ` : ''}
+      ${t.status === 'current' ? `
+        <button class="btn btn-success btn-full" onclick="completeCurrentTrip('${t.id}')" style="margin-top:16px;">Complete Trip</button>
+      ` : ''}
       <div style="display:flex;gap:10px;margin-top:16px;">
         <button class="btn btn-ghost btn-full" onclick="closeModal()">Close</button>
         <button class="btn btn-danger btn-full" onclick="deleteTripConfirm('${t.id}')">🗑️ Delete</button>
       </div>
     </div>
   `);
+}
+
+function completeCurrentTrip(tripId) {
+  const trip = DB.trips.find(item => item.id === tripId);
+  if (!trip || trip.status !== 'current') return;
+
+  trip.status = 'completed';
+  closeModal();
+  showToast('Trip marked as completed.', 'success');
+  if (document.getElementById('dashboard-page')) renderDashboard();
+  else renderTrips();
+}
+
+function showTripOdometerPhoto(tripId, readingType) {
+  const trip = DB.trips.find(item => item.id === tripId);
+  const photo = readingType === 'start' ? trip?.startOdometerPhoto : trip?.endOdometerPhoto;
+  if (photo) viewImage(photo, `${readingType === 'start' ? 'Start' : 'End'} Odometer`);
 }
 
 function deleteTripConfirm(tripId) {
@@ -199,6 +253,36 @@ function showAddTripModal() {
       </div>
       <div class="form-row">
         <div class="form-group">
+          <label class="form-label">Start KM *</label>
+          <input class="form-input" id="new-trip-start-km" type="number" placeholder="54320" min="0" step="any" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label">End KM (optional)</label>
+          <input class="form-input" id="new-trip-end-km" type="number" placeholder="54424" min="0" step="any" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Start Odometer (optional)</label>
+          <div class="upload-area" onclick="document.getElementById('new-trip-start-odo-photo').click()">
+            <div class="upload-icon">📷</div>
+            <div class="upload-text">Tap to <strong>upload start odometer</strong> photo (max 5MB)</div>
+            <input type="file" id="new-trip-start-odo-photo" accept="image/*" style="display:none" />
+          </div>
+          <div id="new-trip-start-odo-preview"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">End Odometer (optional)</label>
+          <div class="upload-area" onclick="document.getElementById('new-trip-end-odo-photo').click()">
+            <div class="upload-icon">📷</div>
+            <div class="upload-text">Tap to <strong>upload end odometer</strong> photo (max 5MB)</div>
+            <input type="file" id="new-trip-end-odo-photo" accept="image/*" style="display:none" />
+          </div>
+          <div id="new-trip-end-odo-preview"></div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
           <label class="form-label">Distance (km) *</label>
           <input class="form-input" id="new-trip-dist" type="number" placeholder="104" min="1" />
         </div>
@@ -222,6 +306,17 @@ function showAddTripModal() {
       </div>
       <div class="form-row">
         <div class="form-group">
+          <label class="form-label" for="new-trip-customer-name">Customer Name (optional)</label>
+          <input class="form-input" id="new-trip-customer-name" placeholder="Customer name" autocomplete="name" />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="new-trip-customer-phone">Customer Phone No (optional)</label>
+          <input class="form-input" id="new-trip-customer-phone" type="tel" inputmode="tel" placeholder="+91 98765 43210" autocomplete="tel" />
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);margin:-8px 0 16px;">WhatsApp drafts open for the driver and, if provided, the customer. Include country code for customer numbers.</div>
+      <div class="form-row">
+        <div class="form-group">
           <label class="form-label">Date</label>
           <input class="form-input" id="new-trip-date" type="date" value="${new Date().toISOString().split('T')[0]}" />
         </div>
@@ -240,6 +335,21 @@ function showAddTripModal() {
       </div>
     </div>
   `);
+
+  window._newTripOdometerPhotos = { start: null, end: null };
+  ['start', 'end'].forEach(readingType => {
+    const input = document.getElementById(`new-trip-${readingType}-odo-photo`);
+    if (!input) return;
+    handleImageUpload(input, (b64) => {
+      window._newTripOdometerPhotos[readingType] = b64;
+      const preview = document.getElementById(`new-trip-${readingType}-odo-preview`);
+      if (preview) {
+        preview.innerHTML = `
+          <img src="${b64}" alt="${readingType} odometer preview" style="width:100%;border-radius:10px;margin-top:8px;max-height:140px;object-fit:contain;" />
+        `;
+      }
+    });
+  });
 }
 
 function addNewTrip() {
@@ -247,9 +357,56 @@ function addNewTrip() {
   const to = document.getElementById('new-trip-to').value.trim();
   const dist = parseInt(document.getElementById('new-trip-dist').value);
   const fare = parseInt(document.getElementById('new-trip-fare').value);
+  const startKmValue = document.getElementById('new-trip-start-km').value;
+  const endKmValue = document.getElementById('new-trip-end-km').value;
+  const startKm = startKmValue === '' ? NaN : Number(startKmValue);
+  const endKm = endKmValue === '' ? null : Number(endKmValue);
   const carId = document.getElementById('new-trip-car').value;
   const driverId = document.getElementById('new-trip-driver').value;
-  if (!from || !to || !dist || !fare || !carId) { showToast('Please fill all required fields', 'error'); return; }
+  const customerName = document.getElementById('new-trip-customer-name').value.trim();
+  const customerPhone = document.getElementById('new-trip-customer-phone').value.trim();
+  const driver = getDriverById(driverId);
+  const car = getCarById(carId);
+  if (!from || !to || !Number.isFinite(dist) || dist <= 0 || !Number.isFinite(fare) || fare <= 0 || !carId || !driverId || !Number.isFinite(startKm) || startKm < 0) {
+    showToast('Please fill all required fields, including a valid Start KM', 'error');
+    return;
+  }
+  if (endKm !== null && (!Number.isFinite(endKm) || endKm < startKm)) {
+    showToast('End KM must be greater than or equal to Start KM', 'error');
+    return;
+  }
+
+  const driverWhatsAppPhone = getWhatsAppPhoneNumber(driver.phone);
+  if (!driverWhatsAppPhone) {
+    showToast('The selected driver needs a valid phone number for WhatsApp', 'error');
+    return;
+  }
+  const customerWhatsAppPhone = customerPhone ? getWhatsAppPhoneNumber(customerPhone) : null;
+  if (customerPhone && !customerWhatsAppPhone) {
+    showToast('Enter a valid customer phone number with country code', 'error');
+    return;
+  }
+
+  const date = document.getElementById('new-trip-date').value;
+  const time = document.getElementById('new-trip-time').value;
+  const carDescription = car ? `${car.make} ${car.model} (${car.plate})` : 'Not specified';
+  const driverMessage = [
+    'New trip assigned.',
+    customerName ? `Customer: ${customerName}` : '',
+    customerPhone ? `Customer phone: ${customerPhone}` : '',
+    `Route: ${from} to ${to}`,
+    `Date and time: ${formatDate(date)} at ${time}`,
+    `Distance: ${dist} km`,
+    `Fare: ${formatCurrency(fare)}`,
+  ].filter(Boolean).join('\n');
+  const customerMessage = [
+    'Your trip has been booked.',
+    `Route: ${from} to ${to}`,
+    `Date and time: ${formatDate(date)} at ${time}`,
+    `Car: ${carDescription}`,
+    `Driver: ${driver.name}`,
+    `Driver phone: ${driver.phone}`,
+  ].join('\n');
 
   const trip = {
     id: generateId('t'),
@@ -257,19 +414,50 @@ function addNewTrip() {
     from, to,
     distance: dist,
     fare,
-    date: document.getElementById('new-trip-date').value,
-    time: document.getElementById('new-trip-time').value,
-    status: 'completed',
+    customerName,
+    customerPhone,
+    startKm,
+    endKm,
+    startOdometerPhoto: window._newTripOdometerPhotos.start,
+    endOdometerPhoto: window._newTripOdometerPhotos.end,
+    date,
+    time,
+    status: 'current',
     notes: document.getElementById('new-trip-notes').value.trim(),
   };
 
   DB.trips.unshift(trip);
 
   // Update car earnings
-  const car = getCarById(carId);
   if (car) car.totalEarnings += fare;
 
+  const driverWhatsAppOpened = openWhatsAppDraft(driverWhatsAppPhone, driverMessage);
+  const customerWhatsAppOpened = customerWhatsAppPhone
+    ? openWhatsAppDraft(customerWhatsAppPhone, customerMessage)
+    : true;
+
+  window._newTripOdometerPhotos = { start: null, end: null };
   closeModal();
-  showToast('Trip logged successfully! 🗺️', 'success');
+  showToast(
+    driverWhatsAppOpened && customerWhatsAppOpened
+      ? 'Trip logged. WhatsApp drafts opened; tap Send in each chat.'
+      : 'Trip logged, but a WhatsApp draft was blocked. Allow pop-ups and try again.',
+    driverWhatsAppOpened && customerWhatsAppOpened ? 'success' : 'error'
+  );
   renderTrips();
+}
+
+function getWhatsAppPhoneNumber(phone) {
+  let digits = phone.replace(/\D/g, '');
+  if (digits.length === 10) digits = `91${digits}`;
+  else if (digits.length === 11 && digits.startsWith('0')) digits = `91${digits.slice(1)}`;
+  return /^\d{8,15}$/.test(digits) ? digits : null;
+}
+
+function openWhatsAppDraft(phone, message) {
+  const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+  const chat = window.open(url, '_blank');
+  if (!chat) return false;
+  chat.opener = null;
+  return true;
 }

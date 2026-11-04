@@ -238,6 +238,7 @@ function renderCarDetailContent(carId) {
             <div class="doc-name">Insurance</div>
             <div class="doc-exp ${ins.cls}">${ins.label}</div>
           </div>
+          ${car.insurance.photo ? `<button class="btn btn-sm btn-outline" onclick="showCarDocumentPhoto('${carId}', 'insurance')">View Photo</button>` : ''}
         </div>
         <div class="doc-card" style="margin-bottom:8px;">
           <div class="doc-icon">📋</div>
@@ -252,13 +253,15 @@ function renderCarDetailContent(carId) {
             <div class="doc-name">Permit</div>
             <div class="doc-exp ${perm.cls}">${perm.label}</div>
           </div>
+          ${car.permit.photo ? `<button class="btn btn-sm btn-outline" onclick="showCarDocumentPhoto('${carId}', 'permit')">View Photo</button>` : ''}
         </div>
-        <div class="doc-card">
+        <div class="doc-card" style="margin-bottom:8px;">
           <div class="doc-icon">🌿</div>
           <div class="doc-info">
             <div class="doc-name">Pollution Certificate (PUC)</div>
             <div class="doc-exp ${poll?.cls || ''}">${poll?.label || 'Expiry date not set'}</div>
           </div>
+          ${car.pollution?.photo ? `<button class="btn btn-sm btn-outline" onclick="showCarDocumentPhoto('${carId}', 'pollution')">View Photo</button>` : ''}
         </div>
         <div class="doc-card" style="margin-top:8px;">
           <div class="doc-icon">✅</div>
@@ -266,6 +269,7 @@ function renderCarDetailContent(carId) {
             <div class="doc-name">Fitness Certificate (CF)</div>
             <div class="doc-exp ${cf?.cls || ''}">${cf?.label || 'Expiry date not set'}</div>
           </div>
+          ${car.cf?.photo ? `<button class="btn btn-sm btn-outline" onclick="showCarDocumentPhoto('${carId}', 'cf')">View Photo</button>` : ''}
         </div>
         <div class="doc-card" style="margin-top:8px;">
           <div class="doc-icon">💳</div>
@@ -273,6 +277,7 @@ function renderCarDetailContent(carId) {
             <div class="doc-name">Tax</div>
             <div class="doc-exp ${tax?.cls || ''}">${tax?.label || 'Expiry date not set'}</div>
           </div>
+          ${car.tax?.photo ? `<button class="btn btn-sm btn-outline" onclick="showCarDocumentPhoto('${carId}', 'tax')">View Photo</button>` : ''}
         </div>
       </div>
 
@@ -348,6 +353,19 @@ function showAssignDriverModal(carId) {
   openModal(html);
 }
 
+function showCarDocumentPhoto(carId, documentType) {
+  const car = getCarById(carId);
+  const documentNames = {
+    cf: 'CF Photo',
+    insurance: 'Insurance Photo',
+    permit: 'Permit Photo',
+    pollution: 'Pollution Photo',
+    tax: 'Tax Photo',
+  };
+  const photo = car?.[documentType]?.photo;
+  if (photo && documentNames[documentType]) viewImage(photo, documentNames[documentType]);
+}
+
 function assignDriver(carId, driverId) {
   const car = getCarById(carId);
   // Remove from previous car
@@ -375,6 +393,52 @@ function showAddCarModal() {
     <div class="modal-sheet">
       <div class="modal-handle"></div>
       <h2 class="modal-title">Add New Car</h2>
+      <div class="section-title" style="margin:8px 0 12px;">Optional Document Photos</div>
+      <div class="form-group">
+        <label class="form-label">CF Photo (Optional)</label>
+        <div class="upload-area" onclick="document.getElementById('new-car-cf-photo').click()">
+          <div class="upload-icon">✅</div>
+          <div class="upload-text">Tap to <strong>upload CF photo</strong> (image, max 5MB)</div>
+          <input type="file" id="new-car-cf-photo" accept="image/*" style="display:none" />
+        </div>
+        <div id="new-car-cf-photo-preview"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Insurance Photo (Optional)</label>
+        <div class="upload-area" onclick="document.getElementById('new-car-insurance-photo').click()">
+          <div class="upload-icon">🛡️</div>
+          <div class="upload-text">Tap to <strong>upload insurance photo</strong> (image, max 5MB)</div>
+          <input type="file" id="new-car-insurance-photo" accept="image/*" style="display:none" />
+        </div>
+        <div id="new-car-insurance-photo-preview"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Permit Photo (Optional)</label>
+        <div class="upload-area" onclick="document.getElementById('new-car-permit-photo').click()">
+          <div class="upload-icon">📄</div>
+          <div class="upload-text">Tap to <strong>upload permit photo</strong> (image, max 5MB)</div>
+          <input type="file" id="new-car-permit-photo" accept="image/*" style="display:none" />
+        </div>
+        <div id="new-car-permit-photo-preview"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Pollution Photo (Optional)</label>
+        <div class="upload-area" onclick="document.getElementById('new-car-pollution-photo').click()">
+          <div class="upload-icon">🌿</div>
+          <div class="upload-text">Tap to <strong>upload pollution certificate photo</strong> (image, max 5MB)</div>
+          <input type="file" id="new-car-pollution-photo" accept="image/*" style="display:none" />
+        </div>
+        <div id="new-car-pollution-photo-preview"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tax Photo (Optional)</label>
+        <div class="upload-area" onclick="document.getElementById('new-car-tax-photo').click()">
+          <div class="upload-icon">💳</div>
+          <div class="upload-text">Tap to <strong>upload tax photo</strong> (image, max 5MB)</div>
+          <input type="file" id="new-car-tax-photo" accept="image/*" style="display:none" />
+        </div>
+        <div id="new-car-tax-photo-preview"></div>
+      </div>
       <div class="form-group">
         <label class="form-label">Number Plate *</label>
         <input class="form-input" id="new-car-plate" placeholder="e.g. BR-01-XY-1234" maxlength="20" />
@@ -452,6 +516,22 @@ function showAddCarModal() {
     </div>
   `;
   openModal(html);
+
+  window._newCarDocumentPhotos = {};
+  const documentTypes = ['cf', 'insurance', 'permit', 'pollution', 'tax'];
+  documentTypes.forEach(documentType => {
+    const input = document.getElementById(`new-car-${documentType}-photo`);
+    if (!input) return;
+    handleImageUpload(input, (b64) => {
+      window._newCarDocumentPhotos[documentType] = b64;
+      const preview = document.getElementById(`new-car-${documentType}-photo-preview`);
+      if (preview) {
+        preview.innerHTML = `
+          <img src="${b64}" alt="${documentType} document photo preview" style="width:100%;border-radius:10px;margin-top:8px;max-height:180px;object-fit:contain;" />
+        `;
+      }
+    });
+  });
 }
 
 function addNewCar() {
@@ -476,18 +556,19 @@ function addNewCar() {
     driverId: null,
     fuelType: document.getElementById('new-car-fuel').value,
     kmReading: 0,
-    insurance: { expiry: document.getElementById('new-car-ins-exp').value || '2026-01-01' },
+    insurance: { expiry: document.getElementById('new-car-ins-exp').value || '2026-01-01', photo: window._newCarDocumentPhotos.insurance || null },
     rc: { expiry: '2039-01-01' },
-    permit: { expiry: document.getElementById('new-car-permit-exp').value || '2026-01-01' },
-    pollution: { expiry: document.getElementById('new-car-pollution-exp').value },
-    cf: { expiry: document.getElementById('new-car-cf-exp').value },
-    tax: { expiry: document.getElementById('new-car-tax-exp').value },
+    permit: { expiry: document.getElementById('new-car-permit-exp').value || '2026-01-01', photo: window._newCarDocumentPhotos.permit || null },
+    pollution: { expiry: document.getElementById('new-car-pollution-exp').value, photo: window._newCarDocumentPhotos.pollution || null },
+    cf: { expiry: document.getElementById('new-car-cf-exp').value, photo: window._newCarDocumentPhotos.cf || null },
+    tax: { expiry: document.getElementById('new-car-tax-exp').value, photo: window._newCarDocumentPhotos.tax || null },
     lastService: new Date().toISOString().split('T')[0],
     nextService: 10000,
     totalEarnings: 0,
     totalExpenses: 0,
   };
   DB.cars.push(car);
+  window._newCarDocumentPhotos = {};
   closeModal();
   showToast('Car added successfully! 🚗', 'success');
   renderFleet();

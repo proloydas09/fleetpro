@@ -63,6 +63,23 @@ function renderDashboard() {
     `;
   }).join('');
 
+  const currentTrips = DB.trips.filter(t => t.status === 'current');
+  const currentTripsHtml = currentTrips.map(t => {
+    const driver = getDriverById(t.driverId);
+    const car = getCarById(t.carId);
+    return `
+      <div class="list-item" onclick="showTripDetail('${t.id}')" style="margin-bottom:10px;">
+        <div class="list-avatar orange">🗺️</div>
+        <div class="list-content">
+          <div class="list-title">${t.from} → ${t.to}</div>
+          <div class="list-sub">${car ? `${car.plate} • ` : ''}${driver ? driver.name : 'No driver assigned'} • ${t.distance} km</div>
+          <div style="font-size:11px;color:var(--accent-orange);font-weight:600;margin-top:3px;">● CURRENT TRIP</div>
+        </div>
+        ${driver?.phone ? `<a class="btn btn-sm btn-outline" href="tel:${driver.phone.replace(/[^\d+]/g, '')}" onclick="event.stopPropagation()" aria-label="Call ${driver.name}">Call</a>` : ''}
+      </div>
+    `;
+  }).join('');
+
   const html = `
     <div class="page" id="dashboard-page">
       <div class="greeting-bar">
@@ -139,6 +156,16 @@ function renderDashboard() {
           <div class="qa-icon purple">💸</div>
           <div class="qa-label">Add Expense</div>
         </button>
+      </div>
+
+      <!-- Current Trips -->
+      <div class="section-header">
+        <div class="section-title">Current Trips (${currentTrips.length})</div>
+        <button class="section-link" onclick="showPage('trips')">All Trips →</button>
+      </div>
+      <div style="padding:0 20px 4px;">
+        ${currentTripsHtml || '<div class="card" style="margin-bottom:16px;color:var(--text-muted);font-size:14px;">No current trips. New trips you log will appear here.</div>'}
+        ${currentTrips.length ? '<div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">Live GPS location is not available yet.</div>' : ''}
       </div>
 
       <!-- Earnings Chart -->
