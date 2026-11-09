@@ -311,7 +311,7 @@ function showAddTripModal() {
         </div>
         <div class="form-group">
           <label class="form-label" for="new-trip-customer-phone">Customer Phone No (optional)</label>
-          <input class="form-input" id="new-trip-customer-phone" type="tel" inputmode="tel" placeholder="+91 98765 43210" autocomplete="tel" />
+          <input class="form-input" id="new-trip-customer-phone" type="tel" inputmode="tel" placeholder="Customer phone number" autocomplete="tel" />
         </div>
       </div>
       <div style="font-size:12px;color:var(--text-muted);margin:-8px 0 16px;">WhatsApp drafts open for the driver and, if provided, the customer. Include country code for customer numbers.</div>

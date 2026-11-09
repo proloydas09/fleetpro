@@ -265,11 +265,11 @@ function showAddDriverModal() {
       <h2 class="modal-title">Add New Driver</h2>
       <div class="form-group">
         <label class="form-label">Full Name *</label>
-        <input class="form-input" id="new-drv-name" placeholder="e.g. Ramesh Kumar" />
+        <input class="form-input" id="new-drv-name" placeholder="Driver name" />
       </div>
       <div class="form-group">
         <label class="form-label">Phone Number *</label>
-        <input class="form-input" id="new-drv-phone" type="tel" placeholder="+91 98765 43210" />
+        <input class="form-input" id="new-drv-phone" type="tel" placeholder="10-digit phone number" />
       </div>
       <div class="form-group">
         <label class="form-label" for="new-drv-aadhaar">Aadhaar Number</label>
@@ -277,7 +277,7 @@ function showAddDriverModal() {
       </div>
       <div class="form-group">
         <label class="form-label" for="new-drv-license">License No</label>
-        <input class="form-input" id="new-drv-license" placeholder="e.g. BR1420200012345" />
+        <input class="form-input" id="new-drv-license" placeholder="Driver license number" />
       </div>
       <div class="form-group">
         <label class="form-label">Upload License Photo</label>
