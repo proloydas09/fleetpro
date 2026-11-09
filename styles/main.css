@@ -333,6 +333,16 @@ html, body {
 
 .owner-avatar:hover { transform: scale(1.1); }
 
+.demo-banner {
+  flex-shrink: 0;
+  padding: 8px 20px;
+  background: rgba(59, 130, 246, 0.1);
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-align: center;
+}
+
 /* PAGE CONTAINER */
 .page-container {
   flex: 1;
