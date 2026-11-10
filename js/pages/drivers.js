@@ -431,6 +431,30 @@ function showDriverAadhaarCard(driverId) {
   viewImage(driver.aadhaarCard, 'Aadhaar Card');
 }
 
+function normalizeDriverPhone(value) {
+  let normalized = value.replace(/\D/g, '');
+  if (normalized.length === 12 && normalized.startsWith('91')) normalized = normalized.slice(2);
+  if (normalized.length === 11 && normalized.startsWith('0')) normalized = normalized.slice(1);
+  return normalized || value.trim().toLowerCase();
+}
+
+function findDuplicateDriverIdentity({ phone, aadhaarNo, license }, excludeDriverId = '') {
+  const identities = [
+    { field: 'phone', label: 'Phone number', value: normalizeDriverPhone(phone), normalize: normalizeDriverPhone },
+    { field: 'aadhaarNo', label: 'Aadhaar number', value: aadhaarNo.replace(/\D/g, ''), normalize: value => value.replace(/\D/g, '') },
+    { field: 'license', label: 'License number', value: license.replace(/[^a-z0-9]/gi, '').toUpperCase(), normalize: value => value.replace(/[^a-z0-9]/gi, '').toUpperCase() },
+  ].filter(identity => identity.value);
+
+  for (const identity of identities) {
+    const duplicate = DB.drivers.find(driver =>
+      driver.id !== excludeDriverId &&
+      identity.normalize(driver[identity.field] || '') === identity.value
+    );
+    if (duplicate) return identity.label;
+  }
+  return '';
+}
+
 function addNewDriver() {
   const name = document.getElementById('new-drv-name').value.trim();
   const phone = document.getElementById('new-drv-phone').value.trim();
@@ -440,13 +464,19 @@ function addNewDriver() {
     showToast('Aadhaar number must be exactly 12 digits', 'error');
     return;
   }
+  const license = document.getElementById('new-drv-license').value.trim();
+  const duplicateField = findDuplicateDriverIdentity({ phone, aadhaarNo, license });
+  if (duplicateField) {
+    showToast(`${duplicateField} is already registered to another driver.`, 'error');
+    return;
+  }
   const driver = {
     id: generateId('d'),
     name,
     phone,
     aadhaarNo,
     aadhaarCard: window._drvAadhaarCardB64 || null,
-    license: document.getElementById('new-drv-license').value.trim(),
+    license,
     licensePhoto: window._drvLicensePhotoB64 || null,
     licenseExpiry: document.getElementById('new-drv-lic-exp').value || '2030-01-01',
     address: document.getElementById('new-drv-address').value.trim(),
@@ -503,10 +533,22 @@ function showEditDriverModal(driverId) {
 
 function saveDriverEdit(driverId) {
   const d = getDriverById(driverId);
+  const phone = document.getElementById('edit-drv-phone').value.trim() || d.phone;
+  if (phone !== d.phone) {
+    const duplicateField = findDuplicateDriverIdentity({
+      phone,
+      aadhaarNo: '',
+      license: '',
+    }, driverId);
+    if (duplicateField) {
+      showToast(`${duplicateField} is already registered to another driver.`, 'error');
+      return;
+    }
+  }
   d.salary = parseInt(document.getElementById('edit-drv-salary').value) || d.salary;
   d.commissionPct = parseInt(document.getElementById('edit-drv-comm').value) || d.commissionPct;
   d.advance = parseInt(document.getElementById('edit-drv-advance').value) || 0;
-  d.phone = document.getElementById('edit-drv-phone').value || d.phone;
+  d.phone = phone;
   closeModal();
   showToast('Driver updated!', 'success');
   showDriverDetail(driverId);
