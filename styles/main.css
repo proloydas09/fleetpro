@@ -389,6 +389,18 @@ html, body {
 .auth-footnote { margin: 18px 0 0; line-height: 1.5; }
 .auth-message { min-height: 20px; color: var(--text-secondary); font-size: 13px; }
 .auth-message.error { color: var(--accent-red); }
+.auth-link {
+  display: block;
+  margin: 14px auto 0;
+  padding: 4px;
+  border: 0;
+  color: var(--accent-blue);
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.auth-link:hover { text-decoration: underline; }
 .auth-card button:disabled { opacity: 0.65; cursor: wait; }
 .page-container {
   flex: 1;

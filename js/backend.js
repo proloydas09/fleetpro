@@ -8,6 +8,7 @@ let fleetSaveTimer = null;
 let fleetSaveInProgress = false;
 let fleetSavePending = false;
 let fleetTrackingEnabled = false;
+let fleetPasswordSetupPending = false;
 const fleetProxyCache = new WeakMap();
 
 function isBackendConfigured() {
@@ -40,11 +41,29 @@ function setConnectionStatus(message, state = '') {
 function showAuthScreen(message = '') {
   document.getElementById('main-app').classList.add('hidden');
   document.getElementById('auth-screen').classList.remove('hidden');
+  document.getElementById('auth-login-form').classList.remove('hidden');
+  document.getElementById('auth-password-form').classList.add('hidden');
   setAuthMessage(message);
+  setPasswordMessage('');
+}
+
+function showPasswordSetupScreen(message = '') {
+  document.getElementById('main-app').classList.add('hidden');
+  document.getElementById('auth-screen').classList.remove('hidden');
+  document.getElementById('auth-login-form').classList.add('hidden');
+  document.getElementById('auth-password-form').classList.remove('hidden');
+  setPasswordMessage(message);
 }
 
 function setAuthMessage(message, isError = false) {
   const element = document.getElementById('auth-message');
+  if (!element) return;
+  element.textContent = message;
+  element.classList.toggle('error', isError);
+}
+
+function setPasswordMessage(message, isError = false) {
+  const element = document.getElementById('auth-password-message');
   if (!element) return;
   element.textContent = message;
   element.classList.toggle('error', isError);
@@ -208,6 +227,69 @@ async function signIn(event) {
   }
 }
 
+async function sendPasswordRecovery() {
+  const emailInput = document.getElementById('auth-email');
+  const email = emailInput.value.trim();
+  if (!emailInput.checkValidity()) {
+    emailInput.reportValidity();
+    return;
+  }
+
+  const button = document.querySelector('.auth-link');
+  button.disabled = true;
+  setAuthMessage('Sending password setup link…');
+
+  try {
+    const { error } = await fleetSupabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + window.location.pathname,
+    });
+    if (error) {
+      setAuthMessage(`Could not send password setup link: ${error.message}`, true);
+      return;
+    }
+
+    setAuthMessage('If that email belongs to an account, a password setup link has been sent.');
+  } catch (error) {
+    setAuthMessage(`Could not send password setup link: ${error.message}`, true);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function setFleetPassword(event) {
+  event.preventDefault();
+  const password = document.getElementById('auth-new-password').value;
+  const confirmation = document.getElementById('auth-confirm-password').value;
+  if (password !== confirmation) {
+    setPasswordMessage('The passwords do not match.', true);
+    return;
+  }
+
+  const button = document.getElementById('auth-password-submit');
+  button.disabled = true;
+  setPasswordMessage('Saving password…');
+
+  try {
+    const { data, error } = await fleetSupabase.auth.updateUser({ password });
+    if (error) {
+      setPasswordMessage(`Could not save password: ${error.message}`, true);
+      return;
+    }
+    if (!data.user) {
+      setPasswordMessage('Password update returned no account. Request a new setup link and try again.', true);
+      return;
+    }
+
+    fleetPasswordSetupPending = false;
+    window.history.replaceState(null, document.title, window.location.pathname);
+    await startFleetSession(data.user);
+  } catch (error) {
+    setPasswordMessage(`Could not save password: ${error.message}`, true);
+  } finally {
+    button.disabled = false;
+  }
+}
+
 async function signOutFleet() {
   try {
     await flushFleetSave();
@@ -291,8 +373,17 @@ async function initializeFleetApp() {
     return;
   }
 
+  const hashType = new URLSearchParams(window.location.hash.slice(1)).get('type');
+  const queryType = new URLSearchParams(window.location.search).get('type');
+  fleetPasswordSetupPending =
+    ['invite', 'recovery'].includes(hashType) ||
+    ['invite', 'recovery'].includes(queryType);
+
   fleetSupabase.auth.onAuthStateChange(event => {
-    if (event === 'SIGNED_OUT') {
+    if (event === 'PASSWORD_RECOVERY') {
+      fleetPasswordSetupPending = true;
+      showPasswordSetupScreen();
+    } else if (event === 'SIGNED_OUT') {
       fleetTrackingEnabled = false;
       fleetUser = null;
       showAuthScreen();
@@ -302,6 +393,11 @@ async function initializeFleetApp() {
   const { data, error } = await fleetSupabase.auth.getSession();
   if (error) {
     showAuthScreen(`Could not check your session: ${error.message}`);
+    return;
+  }
+
+  if (data.session && fleetPasswordSetupPending) {
+    showPasswordSetupScreen();
     return;
   }
 
