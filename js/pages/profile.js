@@ -120,6 +120,7 @@ function renderProfile() {
         <div style="font-family:var(--font-heading);font-size:22px;font-weight:800;background:linear-gradient(135deg,#fff,#3b82f6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">FleetPro</div>
         <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">v1.0.0 • Car Business Manager</div>
         <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Member since ${o.memberSince}</div>
+        ${fleetSupabase ? '<button class="btn btn-outline" style="margin-top:16px;" onclick="signOutFleet()">Sign out</button>' : ''}
       </div>
     </div>
   `;

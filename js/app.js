@@ -185,16 +185,15 @@ window.addEventListener('DOMContentLoaded', () => {
   setTheme(savedTheme === 'light' ? 'light' : 'dark');
 
   const splash = document.getElementById('splash-screen');
-  const mainApp = document.getElementById('main-app');
 
   setTimeout(() => {
     splash.classList.add('fade-out');
     setTimeout(() => {
       splash.style.display = 'none';
-      mainApp.classList.remove('hidden');
-      document.getElementById('owner-initials').textContent = DB.owner.initials;
-      updateNotifBadge();
-      showPage('dashboard');
+      initializeFleetApp().catch(error => {
+        document.getElementById('auth-screen').classList.remove('hidden');
+        setAuthMessage(`Could not start FleetPro: ${error.message}`, true);
+      });
     }, 600);
   }, 2000);
 });
