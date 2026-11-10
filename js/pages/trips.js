@@ -233,10 +233,15 @@ async function viewTripCustomerAadhaar(tripId) {
   const trip = DB.trips.find(item => item.id === tripId);
   if (!trip?.customerAadhaarPath || !fleetSupabase) return;
 
-  const { data, error } = await fleetSupabase.storage
-    .from('trip-customer-aadhaar')
-    .createSignedUrl(trip.customerAadhaarPath, 60);
-  if (error) {
+  let signedUrl;
+  try {
+    const { data, error } = await fleetSupabase.storage
+      .from('trip-customer-aadhaar')
+      .createSignedUrl(trip.customerAadhaarPath, 60);
+    if (error) throw error;
+    if (!data?.signedUrl) throw new Error('No secure document link was returned.');
+    signedUrl = data.signedUrl;
+  } catch (error) {
     showToast(`Could not open Aadhaar attachment: ${error.message}`, 'error');
     return;
   }
@@ -246,8 +251,8 @@ async function viewTripCustomerAadhaar(tripId) {
       <div class="modal-handle"></div>
       <h2 class="modal-title">Customer Aadhaar attachment</h2>
       ${trip.customerAadhaarPath.endsWith('.pdf')
-        ? `<iframe src="${escapeHtml(data.signedUrl)}" title="Customer Aadhaar document" style="width:100%;height:65vh;border:0;border-radius:10px;"></iframe>`
-        : `<img src="${escapeHtml(data.signedUrl)}" alt="Customer Aadhaar document" style="width:100%;max-height:65vh;object-fit:contain;border-radius:10px;" />`}
+        ? `<iframe src="${escapeHtml(signedUrl)}" title="Customer Aadhaar document" style="width:100%;height:65vh;border:0;border-radius:10px;"></iframe>`
+        : `<img src="${escapeHtml(signedUrl)}" alt="Customer Aadhaar document" style="width:100%;max-height:65vh;object-fit:contain;border-radius:10px;" />`}
       <button class="btn btn-ghost btn-full" onclick="closeModal()" style="margin-top:12px;">Close</button>
     </div>
   `);
