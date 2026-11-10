@@ -342,13 +342,13 @@ function showAddTripModal() {
       </div>
       <div class="form-group">
         <label class="form-label">Car *</label>
-        <select class="form-select" id="new-trip-car">
+        <select class="form-select" id="new-trip-car" onchange="syncTripDriverToCar()">
           ${DB.cars.map(c => `<option value="${c.id}">${c.plate} – ${c.make} ${c.model}</option>`).join('')}
         </select>
       </div>
       <div class="form-group">
         <label class="form-label">Driver *</label>
-        <select class="form-select" id="new-trip-driver">
+        <select class="form-select" id="new-trip-driver" onchange="syncTripCarToDriver()">
           <option value="">– Select Driver –</option>
           ${DB.drivers.filter(d => d.status==='active').map(d => `<option value="${d.id}">${d.name}</option>`).join('')}
         </select>
@@ -396,6 +396,7 @@ function showAddTripModal() {
     </div>
   `);
 
+  syncTripDriverToCar();
   window._newTripOdometerPhotos = { start: null, end: null };
   ['start', 'end'].forEach(readingType => {
     const input = document.getElementById(`new-trip-${readingType}-odo-photo`);
@@ -410,6 +411,28 @@ function showAddTripModal() {
       }
     });
   });
+}
+
+function syncTripDriverToCar() {
+  const carSelect = document.getElementById('new-trip-car');
+  const driverSelect = document.getElementById('new-trip-driver');
+  if (!carSelect || !driverSelect) return;
+
+  const assignedDriverId = getCarById(carSelect.value)?.driverId || '';
+  driverSelect.value = [...driverSelect.options].some(option => option.value === assignedDriverId)
+    ? assignedDriverId
+    : '';
+}
+
+function syncTripCarToDriver() {
+  const carSelect = document.getElementById('new-trip-car');
+  const driverSelect = document.getElementById('new-trip-driver');
+  if (!carSelect || !driverSelect) return;
+
+  const assignedCarId = getCarForDriver(driverSelect.value)?.id || '';
+  carSelect.value = [...carSelect.options].some(option => option.value === assignedCarId)
+    ? assignedCarId
+    : '';
 }
 
 function updateTripAadhaarFileName() {
