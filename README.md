@@ -5,12 +5,14 @@ FleetPro is a static web app. Supabase provides email/password authentication an
 ## 1. Create the Supabase project
 
 1. Create a Supabase project on the free plan and keep its database password private.
-2. In **SQL Editor**, run [`database/setup.sql`](./database/setup.sql).
+2. In **SQL Editor**, run [`database/setup.sql`](./database/setup.sql). If the FleetPro project is already set up, run [`database/trip-customer-aadhaar.sql`](./database/trip-customer-aadhaar.sql) to add the private customer Aadhaar upload bucket and owner-only storage policies.
 3. In **Authentication** settings, disable public sign-ups. Do not add a public registration flow.
 4. From the project's API settings, copy the **Project URL** and **publishable/anon key** into `url` and `anonKey` in [`js/backend-config.js`](./js/backend-config.js). These two browser values are public; never use the `service_role` secret in frontend code.
 5. Load the app over HTTP/HTTPS and sign in with the account you created.
 
 The first successful sign-in initializes an empty fleet for that account, with six zeroed months for the charts. Subsequent changes save automatically to that owner's row. The database row is protected by row-level security and cannot be read or changed by anonymous users or another account.
+
+Customer Aadhaar number and document are optional trip fields. Uploaded documents are stored in a private Supabase Storage bucket, limited to 5 MB, and accessible only to the authenticated owner. Aadhaar details are not included in WhatsApp drafts.
 
 ## 2. Deploy to GitHub Pages
 

@@ -189,14 +189,17 @@ function showTripDetail(tripId) {
           </div>
         </div>
       ` : ''}
-      ${t.customerName || t.customerPhone ? `
+      ${t.customerName || t.customerPhone || t.customerAadhaarNo ? `
         <div class="doc-card" style="margin-bottom:10px;">
           <div class="doc-icon">👤</div>
           <div class="doc-info">
             <div class="doc-name">Customer</div>
-            <div class="doc-exp">${t.customerName || 'Name not provided'}${t.customerPhone ? ` • ${t.customerPhone}` : ''}</div>
+            <div class="doc-exp">${escapeHtml(t.customerName || 'Name not provided')}${t.customerPhone ? ` • ${escapeHtml(t.customerPhone)}` : ''}${t.customerAadhaarNo ? ` • Aadhaar: ${escapeHtml(t.customerAadhaarNo)}` : ''}</div>
           </div>
         </div>
+      ` : ''}
+      ${t.customerAadhaarPath ? `
+        <button class="btn btn-outline btn-full" onclick="viewTripCustomerAadhaar('${t.id}')" style="margin-top:10px;">View customer Aadhaar attachment</button>
       ` : ''}
       ${t.status === 'current' ? `
         <button class="btn btn-success btn-full" onclick="completeCurrentTrip('${t.id}')" style="margin-top:16px;">Complete Trip</button>
@@ -226,14 +229,55 @@ function showTripOdometerPhoto(tripId, readingType) {
   if (photo) viewImage(photo, `${readingType === 'start' ? 'Start' : 'End'} Odometer`);
 }
 
+async function viewTripCustomerAadhaar(tripId) {
+  const trip = DB.trips.find(item => item.id === tripId);
+  if (!trip?.customerAadhaarPath || !fleetSupabase) return;
+
+  const { data, error } = await fleetSupabase.storage
+    .from('trip-customer-aadhaar')
+    .createSignedUrl(trip.customerAadhaarPath, 60);
+  if (error) {
+    showToast(`Could not open Aadhaar attachment: ${error.message}`, 'error');
+    return;
+  }
+
+  openModal(`
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <h2 class="modal-title">Customer Aadhaar attachment</h2>
+      ${trip.customerAadhaarPath.endsWith('.pdf')
+        ? `<iframe src="${escapeHtml(data.signedUrl)}" title="Customer Aadhaar document" style="width:100%;height:65vh;border:0;border-radius:10px;"></iframe>`
+        : `<img src="${escapeHtml(data.signedUrl)}" alt="Customer Aadhaar document" style="width:100%;max-height:65vh;object-fit:contain;border-radius:10px;" />`}
+      <button class="btn btn-ghost btn-full" onclick="closeModal()" style="margin-top:12px;">Close</button>
+    </div>
+  `);
+}
+
 function deleteTripConfirm(tripId) {
-  confirmAction('Delete this trip record?', () => {
-    const idx = DB.trips.findIndex(t => t.id === tripId);
-    if (idx > -1) DB.trips.splice(idx, 1);
-    showToast('Trip deleted.', 'error');
-    closeModal();
-    renderTrips();
-  });
+  confirmAction('Delete this trip record?', () => deleteTrip(tripId));
+}
+
+async function deleteTrip(tripId) {
+  const index = DB.trips.findIndex(trip => trip.id === tripId);
+  if (index < 0) return;
+  const trip = DB.trips[index];
+
+  if (trip.customerAadhaarPath && fleetSupabase) {
+    try {
+      const { error } = await fleetSupabase.storage
+        .from('trip-customer-aadhaar')
+        .remove([trip.customerAadhaarPath]);
+      if (error) throw error;
+    } catch (error) {
+      showToast(`Could not delete the Aadhaar attachment: ${error.message}`, 'error');
+      return;
+    }
+  }
+
+  DB.trips.splice(index, 1);
+  showToast('Trip deleted.', 'error');
+  closeModal();
+  renderTrips();
 }
 
 function showAddTripModal() {
@@ -314,7 +358,18 @@ function showAddTripModal() {
           <input class="form-input" id="new-trip-customer-phone" type="tel" inputmode="tel" placeholder="Customer phone number" autocomplete="tel" />
         </div>
       </div>
-      <div style="font-size:12px;color:var(--text-muted);margin:-8px 0 16px;">WhatsApp drafts open for the driver and, if provided, the customer. Include country code for customer numbers.</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="new-trip-customer-aadhaar">Customer Aadhaar No (optional)</label>
+          <input class="form-input" id="new-trip-customer-aadhaar" type="text" inputmode="numeric" autocomplete="off" maxlength="16" placeholder="12-digit Aadhaar number" />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="new-trip-customer-aadhaar-file">Aadhaar image or PDF (optional)</label>
+          <input class="form-input" id="new-trip-customer-aadhaar-file" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onchange="updateTripAadhaarFileName()" />
+          <div id="new-trip-customer-aadhaar-file-name" style="font-size:12px;color:var(--text-muted);margin-top:6px;">Private upload, max 5 MB</div>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);margin:-8px 0 16px;">Trip details are prepared as WhatsApp drafts for the assigned driver and, if a phone is provided, the customer. Aadhaar details are stored privately and are never included in WhatsApp messages.</div>
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">Date</label>
@@ -352,7 +407,13 @@ function showAddTripModal() {
   });
 }
 
-function addNewTrip() {
+function updateTripAadhaarFileName() {
+  const file = document.getElementById('new-trip-customer-aadhaar-file').files[0];
+  document.getElementById('new-trip-customer-aadhaar-file-name').textContent =
+    file ? `${file.name} (${(file.size / (1024 * 1024)).toFixed(1)} MB)` : 'Private upload, max 5 MB';
+}
+
+async function addNewTrip() {
   const from = document.getElementById('new-trip-from').value.trim();
   const to = document.getElementById('new-trip-to').value.trim();
   const dist = parseInt(document.getElementById('new-trip-dist').value);
@@ -365,6 +426,9 @@ function addNewTrip() {
   const driverId = document.getElementById('new-trip-driver').value;
   const customerName = document.getElementById('new-trip-customer-name').value.trim();
   const customerPhone = document.getElementById('new-trip-customer-phone').value.trim();
+  const rawCustomerAadhaarNo = document.getElementById('new-trip-customer-aadhaar').value.trim();
+  const customerAadhaarNo = rawCustomerAadhaarNo.replace(/[\s-]/g, '');
+  const customerAadhaarFile = document.getElementById('new-trip-customer-aadhaar-file').files[0];
   const driver = getDriverById(driverId);
   const car = getCarById(carId);
   if (!from || !to || !Number.isFinite(dist) || dist <= 0 || !Number.isFinite(fare) || fare <= 0 || !carId || !driverId || !Number.isFinite(startKm) || startKm < 0) {
@@ -374,6 +438,25 @@ function addNewTrip() {
   if (endKm !== null && (!Number.isFinite(endKm) || endKm < startKm)) {
     showToast('End KM must be greater than or equal to Start KM', 'error');
     return;
+  }
+  if (customerAadhaarNo && !/^\d{12}$/.test(customerAadhaarNo)) {
+    showToast('Enter a valid 12-digit Aadhaar number', 'error');
+    return;
+  }
+  if (customerAadhaarFile) {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+    if (!allowedTypes.includes(customerAadhaarFile.type)) {
+      showToast('Aadhaar upload must be a JPEG, PNG, WebP image, or PDF', 'error');
+      return;
+    }
+    if (customerAadhaarFile.size > 5 * 1024 * 1024) {
+      showToast('Aadhaar upload must be 5 MB or smaller', 'error');
+      return;
+    }
+    if (!fleetSupabase || !fleetUser) {
+      showToast('Sign in to your private account before uploading Aadhaar documents', 'error');
+      return;
+    }
   }
 
   const driverWhatsAppPhone = getWhatsAppPhoneNumber(driver.phone);
@@ -401,12 +484,13 @@ function addNewTrip() {
   ].filter(Boolean).join('\n');
   const customerMessage = [
     'Your trip has been booked.',
+    customerName ? `Customer: ${customerName}` : '',
     `Route: ${from} to ${to}`,
     `Date and time: ${formatDate(date)} at ${time}`,
     `Car: ${carDescription}`,
     `Driver: ${driver.name}`,
     `Driver phone: ${driver.phone}`,
-  ].join('\n');
+  ].filter(Boolean).join('\n');
 
   const trip = {
     id: generateId('t'),
@@ -416,6 +500,7 @@ function addNewTrip() {
     fare,
     customerName,
     customerPhone,
+    customerAadhaarNo,
     startKm,
     endKm,
     startOdometerPhoto: window._newTripOdometerPhotos.start,
@@ -426,14 +511,53 @@ function addNewTrip() {
     notes: document.getElementById('new-trip-notes').value.trim(),
   };
 
+  const submitButton = document.querySelector('#modal-container .btn-primary');
+  submitButton.disabled = true;
+  submitButton.textContent = customerAadhaarFile ? 'Uploading securely…' : 'Logging trip…';
+  let driverChat = null;
+  let customerChat = null;
+
+  if (customerAadhaarFile) {
+    driverChat = window.open('about:blank', '_blank');
+    if (customerWhatsAppPhone) customerChat = window.open('about:blank', '_blank');
+  }
+
+  if (customerAadhaarFile) {
+    const extension = {
+      'image/jpeg': 'jpg',
+      'image/png': 'png',
+      'image/webp': 'webp',
+      'application/pdf': 'pdf',
+    }[customerAadhaarFile.type];
+    trip.customerAadhaarPath = `${fleetUser.id}/trips/${trip.id}/customer-aadhaar.${extension}`;
+    try {
+      const { error } = await fleetSupabase.storage
+        .from('trip-customer-aadhaar')
+        .upload(trip.customerAadhaarPath, customerAadhaarFile, {
+          contentType: customerAadhaarFile.type,
+          upsert: false,
+        });
+      if (error) throw error;
+    } catch (error) {
+      driverChat?.close();
+      customerChat?.close();
+      submitButton.disabled = false;
+      submitButton.textContent = 'Log Trip';
+      showToast(`Could not upload Aadhaar securely: ${error.message}`, 'error');
+      return;
+    }
+  }
+
   DB.trips.unshift(trip);
 
   // Update car earnings
   if (car) car.totalEarnings += fare;
 
-  const driverWhatsAppOpened = openWhatsAppDraft(driverWhatsAppPhone, driverMessage);
+  const driverWhatsAppOpened = customerAadhaarFile
+    ? openWhatsAppDraft(driverWhatsAppPhone, driverMessage, driverChat)
+    : openWhatsAppDraft(driverWhatsAppPhone, driverMessage);
   const customerWhatsAppOpened = customerWhatsAppPhone
-    ? openWhatsAppDraft(customerWhatsAppPhone, customerMessage)
+    ? openWhatsAppDraft(customerWhatsAppPhone, customerMessage, customerChat)
     : true;
 
   window._newTripOdometerPhotos = { start: null, end: null };
@@ -454,10 +578,15 @@ function getWhatsAppPhoneNumber(phone) {
   return /^\d{8,15}$/.test(digits) ? digits : null;
 }
 
-function openWhatsAppDraft(phone, message) {
+function openWhatsAppDraft(phone, message, chat = null) {
   const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-  const chat = window.open(url, '_blank');
-  if (!chat) return false;
-  chat.opener = null;
-  return true;
+  const target = chat || window.open(url, '_blank');
+  if (!target) return false;
+  try {
+    target.location = url;
+    target.opener = null;
+    return true;
+  } catch {
+    return false;
+  }
 }
