@@ -12,6 +12,7 @@ create table if not exists public.fleet_access (
 alter table public.fleet_access enable row level security;
 revoke all on public.fleet_access from public, anon, authenticated;
 grant select on public.fleet_access to authenticated;
+grant select, insert, update on public.fleet_access to service_role;
 
 drop policy if exists "Users can read their own fleet access" on public.fleet_access;
 create policy "Users can read their own fleet access"
@@ -81,6 +82,7 @@ create policy "Admins can update their fleet data"
 
 grant select, insert, update on public.fleet_data to authenticated;
 revoke all on public.fleet_data from public, anon;
+grant select on public.fleet_data to service_role;
 
 create or replace function public.touch_fleet_data_updated_at()
 returns trigger

@@ -60,6 +60,7 @@ The shared application shell includes:
 - Admins sign in with email and password and can request password recovery by email.
 - Drivers enter their registered phone number and password to sign in. The phone number is normalized and mapped server-side to an internal, non-deliverable authentication email alias.
 - The sign-in UI does not allow public registration. A Driver account must first be provisioned by an Admin invitation.
+- The sign-in screen presents Admin and Driver modes in a shared, responsive panel with role-specific credentials, password visibility controls, and a transport-themed dark blue visual design.
 - Admins set the Driver's initial password when creating the Driver record and can set a new password from the Driver profile at any time.
 - The Driver account endpoint accepts only an authenticated Admin, validates that the Driver belongs to that Admin's fleet, and keeps the Supabase service-role key server-side. It provisions the account, protects the role mapping, and applies password changes through Supabase Auth.
 - Driver phone numbers are normalized to E.164 for login alias generation; ten-digit Indian mobile numbers are interpreted with the +91 country code.
@@ -205,7 +206,7 @@ The owner-specific fleet dataset includes an owner profile, cars, drivers, trips
 
 - Admin authentication uses Supabase email/password; Driver authentication uses a normalized phone number and password. Driver login aliases use a reserved non-deliverable email domain and are managed only by the server.
 - Each owner’s fleet payload is stored in the `fleet_data` table and protected by owner-based row-level security.
-- Role mappings are stored in `fleet_access`, are readable only by the mapped user, and cannot be written by application clients. The authenticated Admin-only `invite-driver` Edge Function uses server-side administrative credentials to create Driver accounts, assign roles, and set/reset passwords.
+- Role mappings are stored in `fleet_access`, are readable only by the mapped user, and cannot be written by application clients. The authenticated Admin-only `invite-driver` Edge Function uses server-side administrative credentials to create Driver accounts, assign roles, and set/reset passwords; its `service_role` has only the required fleet-table privileges.
 - Public signup remains disabled. Driver passwords are sent only to the authenticated Edge Function over HTTPS and are never persisted in fleet data or returned by the function.
 - Driver database functions enforce role, assignment, and active-status checks server-side. They accept only the fields needed for trip/expense operations and assign the authenticated driver's identity, status, and car on the server.
 - The browser uses only the Supabase publishable/anon key; a service-role key or database password must never be placed in frontend code.

@@ -5,7 +5,7 @@ FleetPro is a static web app. Supabase provides Admin email/password authenticat
 ## 1. Configure Supabase
 
 1. Create a Supabase project and keep its database password private.
-2. In **SQL Editor**, run [`database/setup.sql`](./database/setup.sql), then [`database/role-based-access.sql`](./database/role-based-access.sql). The role migration is required for new and existing installations.
+2. In **SQL Editor**, run [`database/setup.sql`](./database/setup.sql), then [`database/role-based-access.sql`](./database/role-based-access.sql). The role migration is required for new and existing installations. It grants the `service_role` only the fleet-table permissions required by the Driver account Edge Function; client roles cannot write role mappings.
 3. If an existing installation has not configured customer Aadhaar uploads, run [`database/trip-customer-aadhaar.sql`](./database/trip-customer-aadhaar.sql) after the role migration.
 4. Keep the **Email** auth provider enabled. Driver accounts use password authentication and an internal, non-deliverable email alias derived from the phone number; the Driver enters only their phone number and password. Phone/SMS authentication and an SMS provider are not required.
 5. In **Authentication** settings, disable public sign-ups. Driver accounts are provisioned by an Admin-only Edge Function; the sign-in flow does not create uninvited accounts.

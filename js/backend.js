@@ -93,6 +93,15 @@ function setFleetAuthMode(mode) {
   setDriverAuthMessage('');
 }
 
+function toggleAuthPasswordVisibility(inputId, button) {
+  const input = document.getElementById(inputId);
+  if (!input || !button) return;
+  const showPassword = input.type === 'password';
+  input.type = showPassword ? 'text' : 'password';
+  button.classList.toggle('is-visible', showPassword);
+  button.setAttribute('aria-label', showPassword ? 'Hide password' : 'Show password');
+}
+
 function resetDriverSignInForm() {
   const phoneInput = document.getElementById('auth-driver-phone');
   const passwordInput = document.getElementById('auth-driver-password');

@@ -315,7 +315,18 @@ async function saveDriverPassword(driverId) {
 
 async function invokeDriverAccountFunction(body) {
   const { data, error } = await fleetSupabase.functions.invoke('invite-driver', { body });
-  if (error) throw error;
+  if (error) {
+    let message = error.message;
+    if (error.context instanceof Response) {
+      try {
+        const details = await error.context.clone().json();
+        if (typeof details?.error === 'string') message = details.error;
+      } catch (parseError) {
+        if (!(parseError instanceof SyntaxError)) throw parseError;
+      }
+    }
+    throw new Error(message);
+  }
   if (!data?.ok) throw new Error(data?.error || 'Driver account setup was not completed.');
   return data;
 }

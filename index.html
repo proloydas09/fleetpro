@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles/main.css?v=20261112b" />
+  <link rel="stylesheet" href="styles/main.css?v=20261112c" />
   <link rel="stylesheet" href="styles/components.css" />
   <link rel="stylesheet" href="styles/pages.css" />
 </head>
@@ -31,61 +31,152 @@
     </div>
 
     <section id="auth-screen" class="auth-screen hidden" aria-labelledby="auth-login-title">
-      <div class="auth-mode-toggle" id="auth-mode-toggle" role="tablist" aria-label="Sign-in method">
-        <button class="auth-mode-btn active" id="auth-mode-admin" type="button" role="tab" aria-selected="true" onclick="setFleetAuthMode('admin')">Admin</button>
-        <button class="auth-mode-btn" id="auth-mode-driver" type="button" role="tab" aria-selected="false" onclick="setFleetAuthMode('driver')">Driver</button>
+      <div class="auth-hero" aria-hidden="true">
+        <svg viewBox="0 0 1200 360" preserveAspectRatio="xMidYMax slice">
+          <defs>
+            <linearGradient id="auth-sky" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#031638" />
+              <stop offset="1" stop-color="#0754a9" />
+            </linearGradient>
+            <linearGradient id="auth-road" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stop-color="#07142e" />
+              <stop offset=".55" stop-color="#0b3473" />
+              <stop offset="1" stop-color="#061632" />
+            </linearGradient>
+            <linearGradient id="auth-truck" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#e4f2ff" />
+              <stop offset="1" stop-color="#378df1" />
+            </linearGradient>
+            <filter id="auth-glow">
+              <feGaussianBlur stdDeviation="5" result="blur" />
+              <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+            </filter>
+          </defs>
+          <rect width="1200" height="360" fill="url(#auth-sky)" />
+          <circle cx="585" cy="170" r="152" fill="#0875df" opacity=".14" />
+          <path d="M0 245 90 170 150 202 220 132 282 205 355 152 420 218 494 142 560 220 640 160 711 221 781 135 850 215 925 155 1005 216 1080 145 1200 228V360H0Z" fill="#0b2654" opacity=".82" />
+          <g fill="#071b3a" opacity=".88">
+            <path d="M430 171h30v74h-30zM466 139h36v106h-36zM508 160h25v85h-25zM540 117h40v128h-40zM586 145h29v100h-29zM622 126h34v119h-34zM664 165h25v80h-25zM695 139h42v106h-42zM744 170h28v75h-28zM780 123h37v122h-37zM824 155h27v90h-27z" />
+            <path d="M474 155h4v5h-4zm12-3h4v5h-4zm-12 17h4v5h-4zm35 7h4v5h-4zm38-46h4v6h-4zm12 0h4v6h-4zm-12 18h4v6h-4zm49 11h4v6h-4zm22-23h4v6h-4zm14 17h4v6h-4zm-78 3h4v6h-4zm137 13h4v6h-4zm-27-33h4v6h-4zm57 17h4v6h-4zm55-22h4v6h-4zm-26 26h4v6h-4z" fill="#42aaff" opacity=".8" />
+          </g>
+          <path d="M-30 306C235 214 430 220 630 287s381 79 620-10" fill="none" stroke="#087cf5" stroke-width="36" opacity=".24" filter="url(#auth-glow)" />
+          <path d="M-30 306C235 214 430 220 630 287s381 79 620-10" fill="none" stroke="#26b9ff" stroke-width="4" opacity=".9" />
+          <path d="M-40 331C220 250 424 254 620 313s382 59 650-16" fill="none" stroke="#1372f0" stroke-width="3" opacity=".8" />
+          <g transform="translate(95 145)">
+            <path d="M0 83V30l34-14h190l37 33v57H0z" fill="#102f61" stroke="#389aff" stroke-width="3" />
+            <path d="m38 20 24-10h158l28 30H38z" fill="#0b1c3d" stroke="#6db9ff" stroke-width="2" />
+            <path d="M66 14h72v36H42zM146 14h67l28 28h-95z" fill="#3c9df6" opacity=".85" />
+            <path d="M3 62h249v38H3z" fill="url(#auth-truck)" />
+            <path d="M259 51h34l40 37v20h-74z" fill="#d8edff" stroke="#50aaff" stroke-width="2" />
+            <path d="m272 57 23 2 28 28h-51z" fill="#16386e" />
+            <path d="M13 68h36v5H13zm0 11h36v5H13z" fill="#6fbaff" />
+            <circle cx="59" cy="105" r="17" fill="#08172e" stroke="#7abaff" stroke-width="5" />
+            <circle cx="59" cy="105" r="6" fill="#b9ddff" />
+            <circle cx="278" cy="105" r="17" fill="#08172e" stroke="#7abaff" stroke-width="5" />
+            <circle cx="278" cy="105" r="6" fill="#b9ddff" />
+            <path d="M321 91h16v7h-16z" fill="#4dd8ff" filter="url(#auth-glow)" />
+          </g>
+          <g transform="translate(762 203)">
+            <path d="m0 53 24-34q11-17 42-19h124q28 2 43 23l24 30 20 9v20H-5V61z" fill="#0a2450" stroke="#42a4ff" stroke-width="3" />
+            <path d="m45 21 24-14h110q21 2 34 17l11 15H35z" fill="#2879ca" />
+            <path d="m75 13-27 21h83V10H73zM141 10v24h72l-8-11q-12-12-29-13z" fill="#a8d7ff" opacity=".8" />
+            <path d="M9 49h253v21H9z" fill="#153d78" />
+            <path d="M16 50h32v7H16zm212 0h28v7h-28z" fill="#68d9ff" filter="url(#auth-glow)" />
+            <circle cx="51" cy="80" r="15" fill="#06142c" stroke="#a2cfff" stroke-width="4" />
+            <circle cx="220" cy="80" r="15" fill="#06142c" stroke="#a2cfff" stroke-width="4" />
+          </g>
+          <g transform="translate(748 44)" filter="url(#auth-glow)">
+            <path d="M24 0C11 0 1 10 1 23c0 18 23 43 23 43s23-25 23-43C47 10 37 0 24 0z" fill="#087df4" stroke="#51d2ff" stroke-width="3" />
+            <circle cx="24" cy="23" r="9" fill="#c6f2ff" />
+          </g>
+          <rect y="300" width="1200" height="60" fill="url(#auth-road)" opacity=".6" />
+        </svg>
       </div>
 
-      <form id="auth-login-form" class="auth-card" onsubmit="signIn(event)">
-        <div class="auth-logo">🚗</div>
-        <h1 id="auth-login-title">FleetPro</h1>
-        <p class="auth-subtitle">Sign in to your private fleet account</p>
-        <div class="form-group">
-          <label class="form-label" for="auth-email">Email</label>
-          <input class="form-input" id="auth-email" name="email" type="email" autocomplete="username" required />
+      <div class="auth-panel">
+        <div class="auth-mode-toggle" id="auth-mode-toggle" role="tablist" aria-label="Sign-in method">
+          <button class="auth-mode-btn active" id="auth-mode-admin" type="button" role="tab" aria-selected="true" onclick="setFleetAuthMode('admin')">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 20 5v6c0 5-3.4 9-8 11-4.6-2-8-6-8-11V5l8-3Zm0 4a1 1 0 0 0-1 1v1.1a4 4 0 0 0-2 6.9V17h6v-2a4 4 0 0 0-2-6.9V7a1 1 0 0 0-1-1Zm0 5a1 1 0 1 1 0 2 1 1 0 0 1 0-2Z" /></svg>
+            Admin
+          </button>
+          <button class="auth-mode-btn" id="auth-mode-driver" type="button" role="tab" aria-selected="false" onclick="setFleetAuthMode('driver')">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 2a8 8 0 0 1 7.7 5.8h-4.1a3.9 3.9 0 0 0-7.2 0H4.3A8 8 0 0 1 12 4Zm-5.8 7.8h3.1a3 3 0 0 0 5.4 0h3.1a8 8 0 0 1-3.3 6.4l-.9-2.1a1 1 0 0 0-.9-.6h-1.6a1 1 0 0 0-.9.6l-.9 2.1a8 8 0 0 1-3.1-6.4Z" /></svg>
+            Driver
+          </button>
         </div>
-        <div class="form-group">
-          <label class="form-label" for="auth-password">Password</label>
-          <input class="form-input" id="auth-password" name="password" type="password" autocomplete="current-password" required />
-        </div>
-        <p id="auth-message" class="auth-message" role="status" aria-live="polite"></p>
-        <button id="auth-submit" class="btn btn-primary btn-full" type="submit">Sign in</button>
-        <button class="auth-link" type="button" onclick="sendPasswordRecovery()">Forgot or set password?</button>
-        <p class="auth-footnote">Accounts are provisioned by the administrator. Public registration is disabled.</p>
-      </form>
 
-      <form id="auth-driver-form" class="auth-card hidden" onsubmit="signInDriver(event)">
-        <div class="auth-logo">🚗</div>
-        <h1>Driver sign in</h1>
-        <p class="auth-subtitle">Sign in with the phone number and password set by your fleet Admin.</p>
-        <div class="form-group">
-          <label class="form-label" for="auth-driver-phone">Phone number</label>
-          <input class="form-input" id="auth-driver-phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" placeholder="+91 98765 43210" required />
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="auth-driver-password">Password</label>
-          <input class="form-input" id="auth-driver-password" name="password" type="password" autocomplete="current-password" required />
-        </div>
-        <p id="auth-driver-message" class="auth-message" role="status" aria-live="polite"></p>
-        <button id="auth-driver-submit" class="btn btn-primary btn-full" type="submit">Sign in</button>
-        <p class="auth-footnote">Ask your fleet Admin to set or reset your password. Public registration is disabled.</p>
-      </form>
+        <form id="auth-login-form" class="auth-card" onsubmit="signIn(event)">
+          <div class="auth-brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 100 52" fill="none"><path d="M5 38 38 29 17 27l33-8-17-2 23-8v29h34l-8-11-8-5H56V4h20l17 19 5 15H5Z" fill="currentColor"/><path d="M64 12h10l10 11H64z" fill="#78c8ff"/><circle cx="78" cy="42" r="5" fill="#0a1d3d" stroke="currentColor" stroke-width="3"/></svg>
+          </div>
+          <h1 id="auth-login-title"><span>Fleet</span><strong>Pro</strong></h1>
+          <p class="auth-subtitle">Sign in to your private fleet account</p>
+          <div class="form-group auth-field">
+            <label class="form-label" for="auth-email"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6"/></svg>Email address</label>
+            <input class="form-input" id="auth-email" name="email" type="email" autocomplete="username" placeholder="Enter your email address" required />
+          </div>
+          <div class="form-group auth-field">
+            <label class="form-label" for="auth-password"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 1 1 8 0v3m-4 4v3"/></svg>Password</label>
+            <div class="auth-password-wrap">
+              <input class="form-input" id="auth-password" name="password" type="password" autocomplete="current-password" placeholder="Enter your password" required />
+              <button class="auth-password-toggle" type="button" aria-label="Show password" onclick="toggleAuthPasswordVisibility('auth-password', this)">
+                <svg class="eye-open" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+                <svg class="eye-closed" viewBox="0 0 24 24" aria-hidden="true"><path d="m3 3 18 18M10.6 5.2A10.7 10.7 0 0 1 12 5c6.4 0 10 7 10 7a15 15 0 0 1-3.1 3.8M6.2 6.3C3.5 8.1 2 12 2 12s3.6 7 10 7a10.7 10.7 0 0 0 3.4-.6M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>
+              </button>
+            </div>
+          </div>
+          <p id="auth-message" class="auth-message" role="status" aria-live="polite"></p>
+          <button id="auth-submit" class="btn btn-primary btn-full auth-submit" type="submit">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 17l5-5-5-5m5 5H3m10-9h5a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3h-5"/></svg>
+            Sign in
+          </button>
+          <button class="auth-link" type="button" onclick="sendPasswordRecovery()">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 1 1 8 0v3m-4 4v3"/></svg>
+            Forgot or reset password?
+          </button>
+          <div class="auth-divider"><span>OR</span></div>
+          <p class="auth-footnote"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5m0-8h.01"/></svg><span>Accounts are provisioned by the administrator.<br />Public registration is disabled.</span></p>
+        </form>
 
-      <form id="auth-password-form" class="auth-card hidden" onsubmit="setFleetPassword(event)">
-        <div class="auth-logo">🚗</div>
-        <h1>Set your password</h1>
-        <p class="auth-subtitle">Choose a password for your private fleet account.</p>
-        <div class="form-group">
-          <label class="form-label" for="auth-new-password">New password</label>
-          <input class="form-input" id="auth-new-password" name="new-password" type="password" autocomplete="new-password" minlength="8" required />
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="auth-confirm-password">Confirm password</label>
-          <input class="form-input" id="auth-confirm-password" name="confirm-password" type="password" autocomplete="new-password" minlength="8" required />
-        </div>
-        <p id="auth-password-message" class="auth-message" role="status" aria-live="polite"></p>
-        <button id="auth-password-submit" class="btn btn-primary btn-full" type="submit">Save password</button>
-      </form>
+        <form id="auth-driver-form" class="auth-card hidden" onsubmit="signInDriver(event)">
+          <div class="auth-brand-mark" aria-hidden="true"><svg viewBox="0 0 100 52" fill="none"><path d="M5 38 38 29 17 27l33-8-17-2 23-8v29h34l-8-11-8-5H56V4h20l17 19 5 15H5Z" fill="currentColor"/><path d="M64 12h10l10 11H64z" fill="#78c8ff"/><circle cx="78" cy="42" r="5" fill="#0a1d3d" stroke="currentColor" stroke-width="3"/></svg></div>
+          <h1><span>Fleet</span><strong>Pro</strong></h1>
+          <p class="auth-subtitle">Sign in with your registered phone and password</p>
+          <div class="form-group auth-field">
+            <label class="form-label" for="auth-driver-phone"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M10 18h4"/></svg>Phone number</label>
+            <input class="form-input" id="auth-driver-phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" placeholder="+91 98765 43210" required />
+          </div>
+          <div class="form-group auth-field">
+            <label class="form-label" for="auth-driver-password"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 1 1 8 0v3m-4 4v3"/></svg>Password</label>
+            <div class="auth-password-wrap">
+              <input class="form-input" id="auth-driver-password" name="password" type="password" autocomplete="current-password" placeholder="Enter your password" required />
+              <button class="auth-password-toggle" type="button" aria-label="Show password" onclick="toggleAuthPasswordVisibility('auth-driver-password', this)">
+                <svg class="eye-open" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+                <svg class="eye-closed" viewBox="0 0 24 24" aria-hidden="true"><path d="m3 3 18 18M10.6 5.2A10.7 10.7 0 0 1 12 5c6.4 0 10 7 10 7a15 15 0 0 1-3.1 3.8M6.2 6.3C3.5 8.1 2 12 2 12s3.6 7 10 7a10.7 10.7 0 0 0 3.4-.6M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>
+              </button>
+            </div>
+          </div>
+          <p id="auth-driver-message" class="auth-message" role="status" aria-live="polite"></p>
+          <button id="auth-driver-submit" class="btn btn-primary btn-full auth-submit" type="submit"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 17l5-5-5-5m5 5H3m10-9h5a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3h-5"/></svg>Sign in</button>
+          <p class="auth-footnote auth-driver-footnote">Ask your fleet Admin to set or reset your password.<br />Public registration is disabled.</p>
+        </form>
+
+        <form id="auth-password-form" class="auth-card hidden" onsubmit="setFleetPassword(event)">
+          <div class="auth-brand-mark" aria-hidden="true"><svg viewBox="0 0 100 52" fill="none"><path d="M5 38 38 29 17 27l33-8-17-2 23-8v29h34l-8-11-8-5H56V4h20l17 19 5 15H5Z" fill="currentColor"/><path d="M64 12h10l10 11H64z" fill="#78c8ff"/><circle cx="78" cy="42" r="5" fill="#0a1d3d" stroke="currentColor" stroke-width="3"/></svg></div>
+          <h1>Set your password</h1>
+          <p class="auth-subtitle">Choose a password for your private fleet account.</p>
+          <div class="form-group auth-field">
+            <label class="form-label" for="auth-new-password">New password</label>
+            <input class="form-input" id="auth-new-password" name="new-password" type="password" autocomplete="new-password" minlength="8" required />
+          </div>
+          <div class="form-group auth-field">
+            <label class="form-label" for="auth-confirm-password">Confirm password</label>
+            <input class="form-input" id="auth-confirm-password" name="confirm-password" type="password" autocomplete="new-password" minlength="8" required />
+          </div>
+          <p id="auth-password-message" class="auth-message" role="status" aria-live="polite"></p>
+          <button id="auth-password-submit" class="btn btn-primary btn-full auth-submit" type="submit">Save password</button>
+        </form>
+      </div>
     </section>
 
     <!-- Main App Shell -->
@@ -167,7 +258,7 @@
   <script src="js/charts.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/backend-config.js?v=20261110c"></script>
-  <script src="js/backend.js?v=20261112b"></script>
+  <script src="js/backend.js?v=20261112c"></script>
   <script src="js/pages/dashboard.js?v=20261104b"></script>
   <script src="js/pages/fleet.js?v=20261104b"></script>
   <script src="js/pages/drivers.js?v=20261112b"></script>
