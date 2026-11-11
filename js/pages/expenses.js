@@ -19,7 +19,7 @@ function renderExpenses() {
           <div style="font-size:20px;font-weight:800;color:var(--accent-orange);">${pending.length}</div>
         </div>
         <div style="flex-shrink:0;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.25);border-radius:12px;padding:12px 16px;min-width:130px;">
-          <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">Total Spent</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">${isFleetDriver() ? 'Submitted' : 'Total Spent'}</div>
           <div style="font-size:18px;font-weight:800;color:var(--accent-red);">${formatCurrency(totalAmount)}</div>
         </div>
         <div style="flex-shrink:0;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.25);border-radius:12px;padding:12px 16px;min-width:110px;">
@@ -76,6 +76,7 @@ function renderExpenseCategories() {
 }
 
 function renderExpenseCard(e) {
+  if (isFleetDriver() && e.driverId !== fleetDriverId) return '';
   const car = getCarById(e.carId);
   const driver = getDriverById(e.driverId);
   const emojis = { Fuel: '⛽', Maintenance: '🔧', Insurance: '🛡️', Permit: '📄', Toll: '🚦', Washing: '🫧', Other: '📦' };
@@ -84,7 +85,7 @@ function renderExpenseCard(e) {
     <div class="approval-card ${e.status}" onclick="showExpenseApproval('${e.id}')">
       <div class="approval-header">
         <div>
-          <div class="approval-title">${emojis[e.category] || '💸'} ${e.category} – ${e.description}</div>
+          <div class="approval-title">${emojis[e.category] || '💸'} ${e.category} – ${escapeHtml(e.description)}</div>
           <div class="approval-meta">
             ${car ? car.plate : '–'} • ${driver ? driver.name : 'Owner'} • ${formatDate(e.date)}
           </div>
@@ -93,7 +94,7 @@ function renderExpenseCard(e) {
         <div class="approval-amount">${formatCurrency(e.amount)}</div>
       </div>
       ${e.hasImage ? `<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--accent-blue);">📎 Has attachment</div>` : ''}
-      ${e.status === 'pending' ? `
+      ${isFleetAdmin() && e.status === 'pending' ? `
         <div class="approval-actions" style="margin-top:10px;" onclick="event.stopPropagation()">
           <button class="btn btn-success btn-sm btn-full" onclick="approveExpense('${e.id}')">✓ Approve</button>
           <button class="btn btn-danger btn-sm btn-full" onclick="rejectExpense('${e.id}')">✗ Reject</button>
@@ -105,7 +106,7 @@ function renderExpenseCard(e) {
 
 function showExpenseApproval(expId) {
   const e = DB.expenses.find(x => x.id === expId);
-  if (!e) return;
+  if (!e || (isFleetDriver() && e.driverId !== fleetDriverId)) return;
   const car = getCarById(e.carId);
   const driver = getDriverById(e.driverId);
   const emojis = { Fuel: '⛽', Maintenance: '🔧', Insurance: '🛡️', Permit: '📄', Toll: '🚦', Washing: '🫧', Other: '📦' };
@@ -117,7 +118,7 @@ function showExpenseApproval(expId) {
       <div style="background:var(--bg-elevated);border-radius:14px;padding:20px;margin-bottom:20px;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
           <div>
-            <div style="font-size:18px;font-weight:700;color:var(--text-primary);">${e.description}</div>
+            <div style="font-size:18px;font-weight:700;color:var(--text-primary);">${escapeHtml(e.description)}</div>
             <div style="font-size:13px;color:var(--text-muted);margin-top:4px;">${formatDate(e.date)}</div>
           </div>
           <div style="font-size:26px;font-weight:900;color:var(--accent-orange);">${formatCurrency(e.amount)}</div>
@@ -153,7 +154,7 @@ function showExpenseApproval(expId) {
       ` : ''}
 
       <!-- Upload Section (for owner to add images) -->
-      <div style="margin-bottom:16px;">
+      ${isFleetAdmin() ? `<div style="margin-bottom:16px;">
         <div style="font-size:13px;font-weight:600;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Add/Replace Image</div>
         <div class="upload-area" onclick="document.getElementById('exp-img-${e.id}').click()">
           <div class="upload-icon">📷</div>
@@ -161,12 +162,14 @@ function showExpenseApproval(expId) {
           <input type="file" id="exp-img-${e.id}" accept="image/*" style="display:none" />
         </div>
         <div id="exp-img-preview-${e.id}"></div>
-      </div>
+      </div>` : ''}
 
       <!-- Status -->
       <div style="margin-bottom:20px;">${statusBadge(e.status)}</div>
 
-      ${e.status === 'pending' ? `
+      ${isFleetDriver() ? `
+        <button class="btn btn-ghost btn-full" onclick="closeModal()">Close</button>
+      ` : e.status === 'pending' ? `
         <div style="display:flex;gap:12px;">
           <button class="btn btn-danger btn-full" onclick="rejectExpense('${e.id}');closeModal()">✗ Reject</button>
           <button class="btn btn-success btn-full" onclick="approveExpense('${e.id}');closeModal()">✓ Approve</button>
@@ -181,7 +184,7 @@ function showExpenseApproval(expId) {
   `);
 
   // Handle image upload for this expense
-  setTimeout(() => {
+  if (isFleetAdmin()) setTimeout(() => {
     const inp = document.getElementById(`exp-img-${e.id}`);
     if (inp) {
       handleImageUpload(inp, (b64) => {
@@ -197,6 +200,7 @@ function showExpenseApproval(expId) {
 }
 
 function approveExpense(expId) {
+  if (!isFleetAdmin()) return;
   const e = DB.expenses.find(x => x.id === expId);
   if (e) {
     if (e.status !== 'approved') {
@@ -214,6 +218,7 @@ function approveExpense(expId) {
 }
 
 function rejectExpense(expId) {
+  if (!isFleetAdmin()) return;
   const e = DB.expenses.find(x => x.id === expId);
   if (e) {
     if (e.status === 'approved') {
@@ -228,6 +233,16 @@ function rejectExpense(expId) {
 }
 
 function showAddExpenseModal() {
+  const driverCar = isFleetDriver() ? DB.cars[0] : null;
+  if (isFleetDriver() && !driverCar) {
+    showToast('No car is assigned to your driver account. Contact the administrator.', 'error');
+    return;
+  }
+  if (isFleetDriver() && driverCar.status !== 'active') {
+    showToast('Your assigned car is not available for expenses. Contact the administrator.', 'error');
+    return;
+  }
+
   window._newExpImgB64 = null;
   openModal(`
     <div class="modal-sheet">
@@ -242,15 +257,15 @@ function showAddExpenseModal() {
       </div>
       <div class="form-group">
         <label class="form-label">Amount (₹) *</label>
-        <input class="form-input" id="new-exp-amount" type="number" placeholder="0" />
+        <input class="form-input" id="new-exp-amount" type="number" min="0.01" step="0.01" placeholder="0" />
       </div>
       <div class="form-group">
         <label class="form-label">Description *</label>
-        <input class="form-input" id="new-exp-desc" placeholder="Brief description" />
+        <input class="form-input" id="new-exp-desc" maxlength="500" placeholder="Brief description" />
       </div>
       <div class="form-group">
         <label class="form-label">Car *</label>
-        <select class="form-select" id="new-exp-car">
+        <select class="form-select" id="new-exp-car" ${isFleetDriver() ? 'disabled' : ''}>
           ${DB.cars.map(c => `<option value="${c.id}">${c.plate} – ${c.make} ${c.model}</option>`).join('')}
         </select>
       </div>
@@ -263,10 +278,11 @@ function showAddExpenseModal() {
         <div class="upload-area" onclick="document.getElementById('new-exp-img').click()">
           <div class="upload-icon">📷</div>
           <div class="upload-text">Tap to <strong>upload image</strong> (optional)</div>
-          <input type="file" id="new-exp-img" accept="image/*" style="display:none" />
+          <input type="file" id="new-exp-img" accept="${isFleetDriver() ? 'image/jpeg,image/png,image/webp' : 'image/*'}" style="display:none" />
         </div>
         <div id="new-exp-img-preview"></div>
       </div>
+      ${isFleetDriver() ? '<p style="font-size:12px;color:var(--text-muted);">Driver expenses are submitted as pending for administrator approval.</p>' : ''}
       <div style="display:flex;gap:12px;margin-top:8px;">
         <button class="btn btn-ghost btn-full" onclick="closeModal()">Cancel</button>
         <button class="btn btn-primary btn-full" onclick="addNewExpense()">Add Expense</button>
@@ -287,6 +303,10 @@ function showAddExpenseModal() {
 }
 
 function addNewExpense() {
+  if (isFleetDriver()) {
+    return addDriverExpense();
+  }
+
   const cat = document.getElementById('new-exp-cat').value;
   const amount = parseFloat(document.getElementById('new-exp-amount').value);
   const desc = document.getElementById('new-exp-desc').value.trim();
@@ -315,5 +335,48 @@ function addNewExpense() {
   window._newExpImgB64 = null;
   closeModal();
   showToast('Expense added! 💸', 'success');
+  renderExpenses();
+}
+
+async function addDriverExpense() {
+  const category = document.getElementById('new-exp-cat').value;
+  const amount = Number(document.getElementById('new-exp-amount').value);
+  const description = document.getElementById('new-exp-desc').value.trim();
+  const date = document.getElementById('new-exp-date').value;
+  const submitButton = document.querySelector('#modal-container .btn-primary');
+  if (!Number.isFinite(amount) || amount <= 0 || !description || !DB.cars[0]) {
+    showToast('Please enter a valid amount and description.', 'error');
+    return;
+  }
+
+  submitButton.disabled = true;
+  submitButton.textContent = 'Submitting…';
+  try {
+    const { error } = await fleetSupabase.rpc('driver_create_expense', {
+      p_expense: {
+        category,
+        amount,
+        description,
+        date,
+        imageUrl: window._newExpImgB64,
+      },
+    });
+    if (error) throw error;
+  } catch (error) {
+    submitButton.disabled = false;
+    submitButton.textContent = 'Add Expense';
+    showToast(`Could not submit expense: ${error.message}`, 'error');
+    return;
+  }
+
+  window._newExpImgB64 = null;
+  closeModal();
+  try {
+    await loadDriverFleetData();
+  } catch (error) {
+    showToast(`Expense was submitted, but the list could not refresh: ${error.message}`, 'error');
+    return;
+  }
+  showToast('Expense submitted for administrator approval.', 'success');
   renderExpenses();
 }

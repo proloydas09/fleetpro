@@ -21,13 +21,13 @@ function renderDashboard() {
     const d1 = daysUntil(car.insurance.expiry);
     const d2 = daysUntil(car.permit.expiry);
     const d3 = daysUntil(car.pollution.expiry);
-    if (d1 <= 30) expiringSoon.push(`<b>${car.plate}</b> insurance expires in ${d1} days`);
-    if (d2 <= 30) expiringSoon.push(`<b>${car.plate}</b> permit expires in ${d2} days`);
-    if (d3 <= 30) expiringSoon.push(`<b>${car.plate}</b> pollution cert expires in ${d3} days`);
+    if (d1 <= 30) expiringSoon.push(`<b>${escapeHtml(car.plate)}</b> insurance expires in ${d1} days`);
+    if (d2 <= 30) expiringSoon.push(`<b>${escapeHtml(car.plate)}</b> permit expires in ${d2} days`);
+    if (d3 <= 30) expiringSoon.push(`<b>${escapeHtml(car.plate)}</b> pollution cert expires in ${d3} days`);
   });
   DB.drivers.forEach(d => {
     const dl = daysUntil(d.licenseExpiry);
-    if (dl <= 60) expiringSoon.push(`<b>${d.name}</b>'s license expires in ${dl} days`);
+    if (dl <= 60) expiringSoon.push(`<b>${escapeHtml(d.name)}</b>'s license expires in ${dl} days`);
   });
 
   const alertsHtml = expiringSoon.slice(0, 3).map(a => `
@@ -55,8 +55,8 @@ function renderDashboard() {
       <div class="trip-item" onclick="showPage('trips')">
         <div class="trip-icon">🗺️</div>
         <div class="trip-info">
-          <div class="trip-route">${t.from} → ${t.to}</div>
-          <div class="trip-meta">${driver ? driver.name : '–'} • ${car ? car.plate : '–'} • ${formatDateShort(t.date)}</div>
+          <div class="trip-route">${escapeHtml(t.from)} → ${escapeHtml(t.to)}</div>
+          <div class="trip-meta">${driver ? escapeHtml(driver.name) : '–'} • ${car ? escapeHtml(car.plate) : '–'} • ${formatDateShort(t.date)}</div>
         </div>
         <div class="trip-fare">${formatCurrency(t.fare)}</div>
       </div>
@@ -71,11 +71,11 @@ function renderDashboard() {
       <div class="list-item" onclick="showTripDetail('${t.id}')" style="margin-bottom:10px;">
         <div class="list-avatar orange">🗺️</div>
         <div class="list-content">
-          <div class="list-title">${t.from} → ${t.to}</div>
-          <div class="list-sub">${car ? `${car.plate} • ` : ''}${driver ? driver.name : 'No driver assigned'} • ${t.distance} km</div>
+          <div class="list-title">${escapeHtml(t.from)} → ${escapeHtml(t.to)}</div>
+          <div class="list-sub">${car ? `${escapeHtml(car.plate)} • ` : ''}${driver ? escapeHtml(driver.name) : 'No driver assigned'} • ${t.distance} km</div>
           <div style="font-size:11px;color:var(--accent-orange);font-weight:600;margin-top:3px;">● CURRENT TRIP</div>
         </div>
-        ${driver?.phone ? `<a class="btn btn-sm btn-outline" href="tel:${driver.phone.replace(/[^\d+]/g, '')}" onclick="event.stopPropagation()" aria-label="Call ${driver.name}">Call</a>` : ''}
+        ${driver?.phone ? `<a class="btn btn-sm btn-outline" href="tel:${driver.phone.replace(/[^\d+]/g, '')}" onclick="event.stopPropagation()" aria-label="Call ${escapeHtml(driver.name)}">Call</a>` : ''}
       </div>
     `;
   }).join('');
@@ -214,8 +214,8 @@ function renderDashboard() {
             <div class="list-item" onclick="showCarDetail('${car.id}')" style="margin-bottom:10px;">
               <div class="list-avatar blue">${car.emoji}</div>
               <div class="list-content">
-                <div class="list-title">${car.plate}</div>
-                <div class="list-sub">${car.make} ${car.model} • ${driver ? driver.name : 'No Driver'}</div>
+                <div class="list-title">${escapeHtml(car.plate)}</div>
+                <div class="list-sub">${escapeHtml(car.make)} ${escapeHtml(car.model)} • ${driver ? escapeHtml(driver.name) : 'No Driver'}</div>
               </div>
               <div class="list-right">
                 ${statusBadge(car.status)}

@@ -30,6 +30,9 @@ function toggleTheme() {
 }
 
 function showPage(pageId) {
+  if (isFleetDriver() && !['trips', 'expenses'].includes(pageId)) {
+    pageId = 'trips';
+  }
   if (currentPage !== pageId) navStack.push(currentPage);
   currentPage = pageId;
   _updateHeader(pageId);
@@ -45,7 +48,7 @@ function _updateHeader(pageId) {
   const backBtn = document.getElementById('back-btn');
 
   const titles = {
-    expenses: '💸 Expenses & Approvals',
+    expenses: isFleetDriver() ? '💸 My Expenses' : '💸 Expenses & Approvals',
     documents: '📋 Documents',
     profile: '👤 My Profile',
   };
@@ -69,6 +72,7 @@ function _updateNavBar(pageId) {
     drivers: 'nav-drivers',
     trips: 'nav-trips',
     reports: 'nav-reports',
+    expenses: 'nav-expenses',
   };
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
   const navId = navMap[pageId];
@@ -79,6 +83,9 @@ function _updateNavBar(pageId) {
 }
 
 function _renderPage(pageId) {
+  if (isFleetDriver() && !['trips', 'expenses'].includes(pageId)) {
+    pageId = 'trips';
+  }
   const renderers = {
     dashboard: renderDashboard,
     fleet: renderFleet,
@@ -93,9 +100,23 @@ function _renderPage(pageId) {
   if (fn) fn();
 }
 
+function updateNavigationForRole() {
+  const isDriver = isFleetDriver();
+  document.querySelectorAll('.admin-only').forEach(element => {
+    element.style.display = isDriver ? 'none' : '';
+  });
+  const expensesNav = document.getElementById('nav-expenses');
+  if (expensesNav) expensesNav.style.display = isDriver ? '' : 'none';
+  const driverSignOut = document.getElementById('driver-signout');
+  if (driverSignOut) driverSignOut.style.display = isDriver ? '' : 'none';
+}
+
 function goBack() {
   if (navStack.length > 0) {
-    const prev = navStack.pop();
+    const previousPage = navStack.pop();
+    const prev = isFleetDriver() && !['trips', 'expenses'].includes(previousPage)
+      ? 'trips'
+      : previousPage;
     currentPage = prev;
     _updateHeader(prev);
     _updateNavBar(prev);
@@ -108,6 +129,7 @@ function goBack() {
 
 // ---- Car Detail Navigation ----
 function showCarDetail(carId) {
+  if (!isFleetAdmin()) return;
   navStack.push(currentPage);
   currentPage = 'car-detail';
   document.getElementById('header-brand').style.display = 'none';
@@ -122,6 +144,7 @@ function showCarDetail(carId) {
 }
 
 function showDriverDetail(driverId) {
+  if (!isFleetAdmin()) return;
   navStack.push(currentPage);
   currentPage = 'driver-detail';
   document.getElementById('header-brand').style.display = 'none';
@@ -147,6 +170,7 @@ function _renderDriverDetail(driverId) {
 
 // ---- Notifications ----
 function showNotifications() {
+  if (!isFleetAdmin()) return;
   const html = `
     <div class="modal-sheet">
       <div class="modal-handle"></div>
@@ -159,9 +183,9 @@ function showNotifications() {
           <div class="notif-item">
             <div class="notif-dot ${n.read ? 'read' : ''}"></div>
             <div class="notif-content">
-              <div class="notif-title">${n.title}</div>
-              <div class="notif-text">${n.text}</div>
-              <div class="notif-time">${n.time}</div>
+              <div class="notif-title">${escapeHtml(n.title)}</div>
+              <div class="notif-text">${escapeHtml(n.text)}</div>
+              <div class="notif-time">${escapeHtml(n.time)}</div>
             </div>
           </div>
         `).join('') : '<div class="empty-state" style="padding:30px;"><div class="empty-icon">🔔</div><div class="empty-text">No notifications</div></div>'}

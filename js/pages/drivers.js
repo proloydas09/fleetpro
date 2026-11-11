@@ -79,7 +79,7 @@ function renderDriverDetailContent(driverId) {
       <div class="trip-item">
         <div class="trip-icon">🗺️</div>
         <div class="trip-info">
-          <div class="trip-route">${t.from} → ${t.to}</div>
+          <div class="trip-route">${escapeHtml(t.from)} → ${escapeHtml(t.to)}</div>
           <div class="trip-meta">${car2 ? car2.plate : '–'} • ${t.distance}km • ${formatDateShort(t.date)}</div>
         </div>
         <div class="trip-fare">${formatCurrency(t.fare)}</div>
@@ -91,7 +91,7 @@ function renderDriverDetailContent(driverId) {
     <div class="list-item" style="margin-bottom:8px;" onclick="showExpenseApproval('${e.id}')">
       <div class="list-avatar orange">💸</div>
       <div class="list-content">
-        <div class="list-title">${e.category} – ${e.description}</div>
+        <div class="list-title">${e.category} – ${escapeHtml(e.description)}</div>
         <div class="list-sub">${formatDate(e.date)} • ${car ? car.plate : '–'}</div>
       </div>
       <div class="list-right">

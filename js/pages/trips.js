@@ -3,7 +3,7 @@
 // =============================================
 
 function renderTrips() {
-  const filter = window.tripFilter || 'all';
+  const filter = isFleetDriver() ? 'all' : (window.tripFilter || 'all');
   const search = (window.tripSearch || '').toLowerCase();
 
   let filtered = DB.trips;
@@ -45,16 +45,16 @@ function renderTrips() {
       <!-- Search -->
       <div class="search-bar">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input class="search-input" placeholder="Search route or driver…" value="${window.tripSearch || ''}" oninput="window.tripSearch=this.value;renderTrips()" />
+        <input class="search-input" placeholder="${isFleetDriver() ? 'Search your routes…' : 'Search route or driver…'}" value="${escapeHtml(window.tripSearch || '')}" oninput="window.tripSearch=this.value;renderTrips()" />
       </div>
 
       <!-- Car Filter Tabs -->
-      <div class="tabs">
+      ${isFleetAdmin() ? `<div class="tabs">
         <button class="tab-btn ${filter==='all'?'active':''}" onclick="window.tripFilter='all';renderTrips()">All</button>
         ${DB.cars.map(c => `
           <button class="tab-btn ${filter===c.id?'active':''}" onclick="window.tripFilter='${c.id}';renderTrips()">${c.plate.split('-').slice(-2).join('-')}</button>
         `).join('')}
-      </div>
+      </div>` : ''}
 
       <!-- Trip List -->
       <div style="padding:0 20px;display:flex;flex-direction:column;gap:10px;">
@@ -66,10 +66,10 @@ function renderTrips() {
               <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;">
                 <div>
                   <div style="font-size:16px;font-weight:700;color:var(--text-primary);">
-                    📍 ${t.from} → ${t.to}
+                    📍 ${escapeHtml(t.from)} → ${escapeHtml(t.to)}
                   </div>
                   <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">
-                    ${formatDate(t.date)} at ${t.time}
+                    ${formatDate(t.date)} at ${escapeHtml(t.time)}
                   </div>
                 </div>
                 <div style="text-align:right;">
@@ -84,7 +84,7 @@ function renderTrips() {
                 </div>
                 <div style="width:1px;height:16px;background:var(--border-color);"></div>
                 <div style="font-size:13px;color:var(--text-muted);">🚗 ${car ? car.plate : '–'}</div>
-                ${t.notes ? `<div style="font-size:11px;color:var(--accent-blue);">📝 ${t.notes}</div>` : ''}
+                ${t.notes ? `<div style="font-size:11px;color:var(--accent-blue);">📝 ${escapeHtml(t.notes)}</div>` : ''}
               </div>
             </div>
           `;
@@ -105,7 +105,7 @@ function renderTrips() {
 
 function showTripDetail(tripId) {
   const t = DB.trips.find(x => x.id === tripId);
-  if (!t) return;
+  if (!t || (isFleetDriver() && t.driverId !== fleetDriverId)) return;
   const driver = getDriverById(t.driverId);
   const car = getCarById(t.carId);
   const commission = driver ? Math.round(t.fare * (driver.commissionPct / 100)) : 0;
@@ -116,8 +116,8 @@ function showTripDetail(tripId) {
       <div class="modal-handle"></div>
       <h2 class="modal-title">Trip Details</h2>
       <div style="background:rgba(59,130,246,0.1);border-radius:16px;padding:20px;margin-bottom:20px;border:1px solid rgba(59,130,246,0.2);">
-        <div style="font-size:22px;font-weight:800;color:#fff;margin-bottom:4px;">📍 ${t.from} → ${t.to}</div>
-        <div style="color:var(--text-muted);font-size:13px;">${formatDate(t.date)} at ${t.time}</div>
+        <div style="font-size:22px;font-weight:800;color:#fff;margin-bottom:4px;">📍 ${escapeHtml(t.from)} → ${escapeHtml(t.to)}</div>
+        <div style="color:var(--text-muted);font-size:13px;">${formatDate(t.date)} at ${escapeHtml(t.time)}</div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">
         <div class="stat-card green">
@@ -146,7 +146,7 @@ function showTripDetail(tripId) {
           </div>
         </div>
       ` : ''}
-      ${t.status === 'current' ? `
+      ${isFleetAdmin() && t.status === 'current' ? `
         <div class="doc-card" style="margin-bottom:10px;">
           <div class="doc-icon">📍</div>
           <div class="doc-info">
@@ -166,7 +166,7 @@ function showTripDetail(tripId) {
           <div class="doc-icon">👨‍✈️</div>
           <div class="doc-info">
             <div class="doc-name">Driver</div>
-            <div class="doc-exp">${driver.name} • ${driver.phone}</div>
+            <div class="doc-exp">${escapeHtml(driver.name)} • ${escapeHtml(driver.phone)}</div>
           </div>
           <a class="btn btn-sm btn-outline" href="tel:${driver.phone.replace(/[^\d+]/g, '')}">Call</a>
         </div>
@@ -176,7 +176,7 @@ function showTripDetail(tripId) {
           <div class="doc-icon">${car.emoji}</div>
           <div class="doc-info">
             <div class="doc-name">Vehicle</div>
-            <div class="doc-exp">${car.plate} – ${car.make} ${car.model}</div>
+            <div class="doc-exp">${escapeHtml(car.plate)} – ${escapeHtml(car.make)} ${escapeHtml(car.model)}</div>
           </div>
         </div>
       ` : ''}
@@ -185,34 +185,35 @@ function showTripDetail(tripId) {
           <div class="doc-icon">📝</div>
           <div class="doc-info">
             <div class="doc-name">Notes</div>
-            <div class="doc-exp">${t.notes}</div>
+            <div class="doc-exp">${escapeHtml(t.notes)}</div>
           </div>
         </div>
       ` : ''}
-      ${t.customerName || t.customerPhone || t.customerAadhaarNo ? `
+      ${(t.customerName || t.customerPhone || (isFleetAdmin() && t.customerAadhaarNo)) ? `
         <div class="doc-card" style="margin-bottom:10px;">
           <div class="doc-icon">👤</div>
           <div class="doc-info">
             <div class="doc-name">Customer</div>
-            <div class="doc-exp">${escapeHtml(t.customerName || 'Name not provided')}${t.customerPhone ? ` • ${escapeHtml(t.customerPhone)}` : ''}${t.customerAadhaarNo ? ` • Aadhaar: ${escapeHtml(t.customerAadhaarNo)}` : ''}</div>
+            <div class="doc-exp">${escapeHtml(t.customerName || 'Name not provided')}${t.customerPhone ? ` • ${escapeHtml(t.customerPhone)}` : ''}${isFleetAdmin() && t.customerAadhaarNo ? ` • Aadhaar: ${escapeHtml(t.customerAadhaarNo)}` : ''}</div>
           </div>
         </div>
       ` : ''}
-      ${t.customerAadhaarPath ? `
+      ${isFleetAdmin() && t.customerAadhaarPath ? `
         <button class="btn btn-outline btn-full" onclick="viewTripCustomerAadhaar('${t.id}')" style="margin-top:10px;">View customer Aadhaar attachment</button>
       ` : ''}
-      ${t.status === 'current' ? `
+      ${isFleetAdmin() && t.status === 'current' ? `
         <button class="btn btn-success btn-full" onclick="completeCurrentTrip('${t.id}')" style="margin-top:16px;">Complete Trip</button>
       ` : ''}
       <div style="display:flex;gap:10px;margin-top:16px;">
         <button class="btn btn-ghost btn-full" onclick="closeModal()">Close</button>
-        <button class="btn btn-danger btn-full" onclick="deleteTripConfirm('${t.id}')">🗑️ Delete</button>
+        ${isFleetAdmin() ? `<button class="btn btn-danger btn-full" onclick="deleteTripConfirm('${t.id}')">🗑️ Delete</button>` : ''}
       </div>
     </div>
   `);
 }
 
 function completeCurrentTrip(tripId) {
+  if (!isFleetAdmin()) return;
   const trip = DB.trips.find(item => item.id === tripId);
   if (!trip || trip.status !== 'current') return;
 
@@ -230,6 +231,7 @@ function showTripOdometerPhoto(tripId, readingType) {
 }
 
 async function viewTripCustomerAadhaar(tripId) {
+  if (!isFleetAdmin()) return;
   const trip = DB.trips.find(item => item.id === tripId);
   if (!trip?.customerAadhaarPath || !fleetSupabase) return;
 
@@ -259,10 +261,12 @@ async function viewTripCustomerAadhaar(tripId) {
 }
 
 function deleteTripConfirm(tripId) {
+  if (!isFleetAdmin()) return;
   confirmAction('Delete this trip record?', () => deleteTrip(tripId));
 }
 
 async function deleteTrip(tripId) {
+  if (!isFleetAdmin()) return;
   const index = DB.trips.findIndex(trip => trip.id === tripId);
   if (index < 0) return;
   const trip = DB.trips[index];
@@ -286,6 +290,16 @@ async function deleteTrip(tripId) {
 }
 
 function showAddTripModal() {
+  const driverCar = isFleetDriver() ? DB.cars[0] : null;
+  if (isFleetDriver() && !driverCar) {
+    showToast('No car is assigned to your driver account. Contact the administrator.', 'error');
+    return;
+  }
+  if (isFleetDriver() && driverCar.status !== 'active') {
+    showToast('Your assigned car is not available for new trips. Contact the administrator.', 'error');
+    return;
+  }
+
   openModal(`
     <div class="modal-sheet">
       <div class="modal-handle"></div>
@@ -303,7 +317,7 @@ function showAddTripModal() {
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">Start KM *</label>
-          <input class="form-input" id="new-trip-start-km" type="number" placeholder="54320" min="0" step="any" required />
+          <input class="form-input" id="new-trip-start-km" type="number" placeholder="${driverCar?.kmReading || '54320'}" min="0" step="any" required />
         </div>
         <div class="form-group">
           <label class="form-label">End KM (optional)</label>
@@ -316,7 +330,7 @@ function showAddTripModal() {
           <div class="upload-area" onclick="document.getElementById('new-trip-start-odo-photo').click()">
             <div class="upload-icon">📷</div>
             <div class="upload-text">Tap to <strong>upload start odometer</strong> photo (max 5MB)</div>
-            <input type="file" id="new-trip-start-odo-photo" accept="image/*" style="display:none" />
+            <input type="file" id="new-trip-start-odo-photo" accept="${isFleetDriver() ? 'image/jpeg,image/png,image/webp' : 'image/*'}" style="display:none" />
           </div>
           <div id="new-trip-start-odo-preview"></div>
         </div>
@@ -325,7 +339,7 @@ function showAddTripModal() {
           <div class="upload-area" onclick="document.getElementById('new-trip-end-odo-photo').click()">
             <div class="upload-icon">📷</div>
             <div class="upload-text">Tap to <strong>upload end odometer</strong> photo (max 5MB)</div>
-            <input type="file" id="new-trip-end-odo-photo" accept="image/*" style="display:none" />
+            <input type="file" id="new-trip-end-odo-photo" accept="${isFleetDriver() ? 'image/jpeg,image/png,image/webp' : 'image/*'}" style="display:none" />
           </div>
           <div id="new-trip-end-odo-preview"></div>
         </div>
@@ -342,17 +356,17 @@ function showAddTripModal() {
       </div>
       <div class="form-group">
         <label class="form-label">Car *</label>
-        <select class="form-select" id="new-trip-car" onchange="syncTripDriverToCar()">
+        <select class="form-select" id="new-trip-car" onchange="syncTripDriverToCar()" ${isFleetDriver() ? 'disabled' : ''}>
           ${DB.cars.map(c => `<option value="${c.id}">${c.plate} – ${c.make} ${c.model}</option>`).join('')}
         </select>
       </div>
-      <div class="form-group">
+      ${isFleetAdmin() ? `<div class="form-group">
         <label class="form-label">Driver *</label>
         <select class="form-select" id="new-trip-driver" onchange="syncTripCarToDriver()">
           <option value="">– Select Driver –</option>
           ${DB.drivers.filter(d => d.status==='active').map(d => `<option value="${d.id}">${d.name}</option>`).join('')}
         </select>
-      </div>
+      </div>` : `<div class="form-group"><label class="form-label">Driver</label><input class="form-input" value="${DB.drivers[0]?.name || ''}" readonly /></div>`}
       <div class="form-row">
         <div class="form-group">
           <label class="form-label" for="new-trip-customer-name">Customer Name (optional)</label>
@@ -363,7 +377,7 @@ function showAddTripModal() {
           <input class="form-input" id="new-trip-customer-phone" type="tel" inputmode="tel" placeholder="Customer phone number" autocomplete="tel" />
         </div>
       </div>
-      <div class="form-row">
+      ${isFleetAdmin() ? `<div class="form-row">
         <div class="form-group">
           <label class="form-label" for="new-trip-customer-aadhaar">Customer Aadhaar No (optional)</label>
           <input class="form-input" id="new-trip-customer-aadhaar" type="text" inputmode="numeric" autocomplete="off" maxlength="16" placeholder="12-digit Aadhaar number" />
@@ -375,6 +389,7 @@ function showAddTripModal() {
         </div>
       </div>
       <div style="font-size:12px;color:var(--text-muted);margin:-8px 0 16px;">Trip details are prepared as WhatsApp drafts for the assigned driver and, if a phone is provided, the customer. Aadhaar details are stored privately and are never included in WhatsApp messages.</div>
+      ` : '<div style="font-size:12px;color:var(--text-muted);margin:-8px 0 16px;">Customer name and phone are optional. Aadhaar details are not available to driver accounts.</div>'}
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">Date</label>
@@ -442,6 +457,11 @@ function updateTripAadhaarFileName() {
 }
 
 async function addNewTrip() {
+  if (isFleetDriver()) {
+    await addDriverTrip();
+    return;
+  }
+
   const from = document.getElementById('new-trip-from').value.trim();
   const to = document.getElementById('new-trip-to').value.trim();
   const dist = parseInt(document.getElementById('new-trip-dist').value);
@@ -595,6 +615,101 @@ async function addNewTrip() {
       ? 'Trip logged. WhatsApp drafts opened; tap Send in each chat.'
       : 'Trip logged, but a WhatsApp draft was blocked. Allow pop-ups and try again.',
     driverWhatsAppOpened && customerWhatsAppOpened ? 'success' : 'error'
+  );
+  renderTrips();
+}
+
+async function addDriverTrip() {
+  const from = document.getElementById('new-trip-from').value.trim();
+  const to = document.getElementById('new-trip-to').value.trim();
+  const distance = Number(document.getElementById('new-trip-dist').value);
+  const fare = Number(document.getElementById('new-trip-fare').value);
+  const startKmValue = document.getElementById('new-trip-start-km').value;
+  const endKmValue = document.getElementById('new-trip-end-km').value;
+  const startKm = startKmValue === '' ? NaN : Number(startKmValue);
+  const endKm = endKmValue === '' ? null : Number(endKmValue);
+  const car = DB.cars[0];
+  const driver = DB.drivers.find(item => item.id === fleetDriverId);
+  const customerName = document.getElementById('new-trip-customer-name').value.trim();
+  const customerPhone = document.getElementById('new-trip-customer-phone').value.trim();
+  const date = document.getElementById('new-trip-date').value;
+  const time = document.getElementById('new-trip-time').value;
+  const notes = document.getElementById('new-trip-notes').value.trim();
+
+  if (!from || !to || !Number.isFinite(distance) || distance <= 0 ||
+      !Number.isFinite(fare) || fare <= 0 || !Number.isFinite(startKm) ||
+      startKm < 0 || !car || !driver) {
+    showToast('Please fill all required fields, including a valid Start KM', 'error');
+    return;
+  }
+  if (endKm !== null && (!Number.isFinite(endKm) || endKm < startKm)) {
+    showToast('End KM must be greater than or equal to Start KM', 'error');
+    return;
+  }
+
+  const submitButton = document.querySelector('#modal-container .btn-primary');
+  submitButton.disabled = true;
+  submitButton.textContent = 'Logging trip…';
+  try {
+    const { error } = await fleetSupabase.rpc('driver_create_trip', {
+      p_trip: {
+        from,
+        to,
+        distance,
+        fare,
+        startKm,
+        endKm,
+        startOdometerPhoto: window._newTripOdometerPhotos.start,
+        endOdometerPhoto: window._newTripOdometerPhotos.end,
+        customerName,
+        customerPhone,
+        date,
+        time,
+        notes,
+        carId: car.id,
+      },
+    });
+    if (error) throw error;
+  } catch (error) {
+    submitButton.disabled = false;
+    submitButton.textContent = 'Log Trip';
+    showToast(`Could not log trip: ${error.message}`, 'error');
+    return;
+  }
+
+  closeModal();
+  window._newTripOdometerPhotos = { start: null, end: null };
+  try {
+    await loadDriverFleetData();
+  } catch (error) {
+    showToast(`Trip was saved, but the trip list could not refresh: ${error.message}`, 'error');
+    return;
+  }
+
+  let draftOpened = true;
+  if (customerPhone) {
+    const phone = getWhatsAppPhoneNumber(customerPhone);
+    if (phone) {
+      const customerMessage = [
+        'Your trip has been booked.',
+        customerName ? `Customer: ${customerName}` : '',
+        `Route: ${from} to ${to}`,
+        `Date and time: ${formatDate(date)} at ${time}`,
+        `Car: ${car.make} ${car.model} (${car.plate})`,
+        `Driver: ${driver.name}`,
+        `Driver phone: ${driver.phone}`,
+      ].filter(Boolean).join('\n');
+      draftOpened = openWhatsAppDraft(phone, customerMessage);
+    } else {
+      draftOpened = false;
+    }
+  }
+
+  showToast(
+    draftOpened
+      ? 'Trip logged successfully.'
+      : 'Trip logged, but the customer WhatsApp draft could not be opened.',
+    draftOpened ? 'success' : 'error'
   );
   renderTrips();
 }
