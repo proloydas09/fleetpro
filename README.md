@@ -1,14 +1,14 @@
 # FleetPro deployment
 
-FleetPro is a static web app. Supabase provides Admin email/password authentication, Driver phone/SMS OTP authentication, private fleet data, and private storage for customer Aadhaar uploads. Admins manage the fleet; Drivers are restricted to their assigned car, trips, and expenses. GitHub Pages hosts the frontend. The browser uses only the Supabase publishable key; the service-role key is used only by the `invite-driver` Edge Function.
+FleetPro is a static web app. Supabase provides Admin email/password authentication, Driver phone/password authentication, private fleet data, and private storage for customer Aadhaar uploads. Admins manage the fleet; Drivers are restricted to their assigned car, trips, and expenses. GitHub Pages hosts the frontend. The browser uses only the Supabase publishable key; the service-role key is used only by the `invite-driver` Edge Function.
 
 ## 1. Configure Supabase
 
 1. Create a Supabase project and keep its database password private.
 2. In **SQL Editor**, run [`database/setup.sql`](./database/setup.sql), then [`database/role-based-access.sql`](./database/role-based-access.sql). The role migration is required for new and existing installations.
 3. If an existing installation has not configured customer Aadhaar uploads, run [`database/trip-customer-aadhaar.sql`](./database/trip-customer-aadhaar.sql) after the role migration.
-4. In **Authentication → Sign-in providers**, enable **Phone** authentication. Configure an SMS provider and an SMS OTP template. SMS delivery may require a paid provider and, in India, applicable DLT registration and template approval. Configure appropriate OTP rate limits and CAPTCHA for production.
-5. In **Authentication** settings, disable public sign-ups. Driver OTP login is for accounts first provisioned by an Admin; the sign-in flow does not create uninvited accounts.
+4. Keep the **Email** auth provider enabled. Driver accounts use password authentication and an internal, non-deliverable email alias derived from the phone number; the Driver enters only their phone number and password. Phone/SMS authentication and an SMS provider are not required.
+5. In **Authentication** settings, disable public sign-ups. Driver accounts are provisioned by an Admin-only Edge Function; the sign-in flow does not create uninvited accounts.
 6. Copy the Supabase **Project URL** and **publishable key** into `url` and `anonKey` in [`js/backend-config.js`](./js/backend-config.js). These browser values are public. Never put a `service_role` secret in frontend code or commit it to the repository.
 
 ## 2. Provision the initial Admin
@@ -33,7 +33,7 @@ The initial Admin signs in through the Admin tab using email/password. A first s
 
 ## 3. Deploy the Driver invitation function
 
-The Admin-only `invite-driver` Supabase Edge Function creates or links the phone-auth account, assigns its protected `fleet_access` Driver mapping, and sends the initial SMS login code. Its service-role credential stays on the server.
+The Admin-only `invite-driver` Supabase Edge Function creates a Driver password account, assigns its protected `fleet_access` mapping, and supports Admin password resets. It verifies the Admin session and fleet ownership, and keeps its service-role credential on the server.
 
 Install the Supabase CLI, then from the repository root run:
 
@@ -49,12 +49,12 @@ Supabase supplies `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROL
 
 1. Sign in as Admin, open **Drivers**, and add the Driver using the phone number they will use to log in.
 2. Assign the Driver to an active car and ensure the car is assigned back to that Driver.
-3. Open the Driver's profile and choose **Invite / Send Login Code**. FleetPro creates/links their phone account and sends an SMS OTP. Use the same action to resend a code if needed, subject to Supabase/provider rate limits.
-4. The Driver opens the same FleetPro URL, chooses the **Driver** tab, enters the registered phone number, requests a code, and verifies the SMS code. No email or password is required.
+3. When adding a Driver, enter and confirm a password. FleetPro saves the Driver record and provisions their login through the protected Edge Function. To set or reset a password later, open the Driver profile and choose **Set / Reset Driver Password**.
+4. Share the password with the Driver directly. The Driver opens the same FleetPro URL, chooses the **Driver** tab, and signs in with their registered phone number and password. No email address or SMS code is needed.
 
-Ten-digit Indian mobile numbers are treated as `+91`; other numbers should be entered with their country code (E.164 format). Driver account and role provisioning is handled by the Edge Function, not by client-side SQL or user-editable metadata. Drivers without an active assigned car cannot be invited or submit trips/expenses.
+Ten-digit Indian mobile numbers are treated as `+91`; other numbers should be entered with their country code. Driver login aliases are generated on the server from the normalized phone number and are not real email addresses. Changing a Driver's phone updates the login alias for an already-linked account. Driver account and role provisioning/password updates are handled by the Edge Function, not by client-side SQL or user-editable metadata. Drivers without an active assigned car cannot enter their workspace or submit trips/expenses.
 
-Drivers receive only their assigned car, their own trips, and their own expenses. Driver trips update fleet earnings; Driver expenses are submitted as pending for Admin review. The Edge Function must be deployed and an SMS provider configured before in-app invitations and phone login will work.
+Drivers receive only their assigned car, their own trips, and their own expenses. Driver trips update fleet earnings; Driver expenses are submitted as pending for Admin review. The Edge Function must be deployed before Admins can create Driver accounts or set/reset passwords.
 
 ## 5. Deploy to GitHub Pages
 
@@ -68,4 +68,4 @@ The included `_headers` file can be used by compatible static hosts such as Clou
 
 ## Local/demo mode
 
-If Supabase configuration is blank or the Supabase client CDN is unavailable, the app explicitly runs in demo mode with sample data. Demo mode is an Admin-only preview; changes are not saved. Role-based sign-in requires Supabase, the `fleet_access` migration, a deployed invitation function, and an SMS provider for Driver phone authentication. Serve the repository over HTTP rather than opening `index.html` directly.
+If Supabase configuration is blank or the Supabase client CDN is unavailable, the app explicitly runs in demo mode with sample data. Demo mode is an Admin-only preview; changes are not saved. Role-based sign-in requires Supabase, the `fleet_access` migration, and the deployed `invite-driver` function. Serve the repository over HTTP rather than opening `index.html` directly.

@@ -26,15 +26,19 @@ function normalizePhone(value: unknown): string {
   return "";
 }
 
-async function findUserByPhone(adminClient: ReturnType<typeof createClient>, phone: string) {
+function driverLoginEmail(phone: string): string {
+  return `driver-${phone.replace(/\D/g, "")}@login.fleetpro.invalid`;
+}
+
+async function findUserByEmail(adminClient: ReturnType<typeof createClient>, email: string) {
   for (let page = 1; page <= 100; page += 1) {
     const { data, error } = await adminClient.auth.admin.listUsers({ page, perPage: 1000 });
     if (error) throw error;
-    const match = data.users.find(user => user.phone === phone);
+    const match = data.users.find(user => user.email === email);
     if (match) return match;
     if (data.users.length < 1000) return null;
   }
-  throw new Error("Too many accounts to safely locate this phone number.");
+  throw new Error("Too many accounts to safely locate this Driver login.");
 }
 
 Deno.serve(async request => {
@@ -47,13 +51,13 @@ Deno.serve(async request => {
 
   const authorization = request.headers.get("Authorization");
   const token = authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
-  if (!token) return respond(401, { error: "Sign in as an Admin to invite a Driver." });
+  if (!token) return respond(401, { error: "Sign in as an Admin to manage Driver passwords." });
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (!supabaseUrl || !anonKey || !serviceRoleKey) {
-    return respond(500, { error: "Driver invitations are not configured on the server." });
+    return respond(500, { error: "Driver account management is not configured on the server." });
   }
 
   const userClient = createClient(supabaseUrl, anonKey, {
@@ -77,7 +81,7 @@ Deno.serve(async request => {
       .eq("role", "admin")
       .maybeSingle();
     if (accessError) throw accessError;
-    if (!access) return respond(403, { error: "Only a FleetPro Admin can invite Drivers." });
+    if (!access) return respond(403, { error: "Only a FleetPro Admin can manage Driver passwords." });
 
     let body: unknown;
     try {
@@ -90,6 +94,18 @@ Deno.serve(async request => {
       return respond(400, { error: "A Driver record is required." });
     }
     const driverId = body.driverId.trim();
+    const action = "action" in body && typeof body.action === "string" ? body.action : "";
+    if (!["set_password", "update_phone"].includes(action)) {
+      return respond(400, { error: "A supported Driver account action is required." });
+    }
+    let password = "";
+    if (action === "set_password") {
+      if (!("password" in body) || typeof body.password !== "string" ||
+        body.password.length < 8 || body.password.length > 128) {
+        return respond(400, { error: "Driver passwords must be between 8 and 128 characters." });
+      }
+      password = body.password;
+    }
 
     const { data: fleet, error: fleetError } = await adminClient
       .from("fleet_data")
@@ -100,119 +116,103 @@ Deno.serve(async request => {
     if (!fleet?.payload) return respond(404, { error: "Fleet data is not initialized." });
 
     const payload = fleet.payload as {
-      drivers?: Array<{ id?: string; name?: string; phone?: string; status?: string; carId?: string | null }>;
-      cars?: Array<{ id?: string; driverId?: string | null; status?: string }>;
+      drivers?: Array<{ id?: string; phone?: string }>;
     };
-    if (!Array.isArray(payload.drivers) || !Array.isArray(payload.cars)) {
-      return respond(500, { error: "Fleet Driver and car data is invalid. Reload the Admin app and try again." });
+    if (!Array.isArray(payload.drivers)) {
+      return respond(500, { error: "Fleet Driver data is invalid. Reload the Admin app and try again." });
     }
     const driver = payload.drivers.find(item => item.id === driverId);
-    if (!driver || driver.status !== "active" || !driver.carId) {
-      return respond(400, { error: "The Driver must be active and assigned to a car before inviting." });
-    }
-    const car = payload.cars.find(item =>
-      item.id === driver.carId && item.driverId === driverId && item.status === "active"
-    );
-    if (!car) return respond(400, { error: "Assign this Driver to an active car before inviting." });
+    if (!driver) return respond(404, { error: "This Driver record does not belong to your fleet." });
 
     const phone = normalizePhone(driver.phone);
     if (!phone) {
       return respond(400, { error: "Enter a valid phone number. Indian numbers can use 10 digits or the +91 country code." });
     }
+    const loginEmail = driverLoginEmail(phone);
 
     const { data: existingLink, error: linkError } = await adminClient
       .from("fleet_access")
       .select("user_id")
       .eq("owner_id", userData.user.id)
       .eq("driver_id", driverId)
+      .eq("role", "driver")
       .maybeSingle();
     if (linkError) throw linkError;
 
-    let authUser: Awaited<ReturnType<typeof findUserByPhone>>;
+    if (action === "update_phone") {
+      if (!existingLink) return respond(200, { ok: true, accountUpdated: false });
+      const { data: linkedUser, error: linkedUserError } = await adminClient.auth.admin.getUserById(existingLink.user_id);
+      if (linkedUserError) throw linkedUserError;
+      const currentEmail = linkedUser.user.email || "";
+      if (currentEmail && !/^driver-\d+@login\.fleetpro\.invalid$/.test(currentEmail)) {
+        return respond(409, { error: "This Driver account uses a different login email and cannot be changed automatically." });
+      }
+
+      const duplicateUser = await findUserByEmail(adminClient, loginEmail);
+      if (duplicateUser && duplicateUser.id !== linkedUser.user.id) {
+        return respond(409, { error: "This phone number is already linked to another FleetPro account." });
+      }
+      if (currentEmail !== loginEmail) {
+        const { error: updateError } = await adminClient.auth.admin.updateUserById(
+          linkedUser.user.id,
+          { email: loginEmail, email_confirm: true },
+        );
+        if (updateError) throw updateError;
+      }
+      return respond(200, { ok: true, accountUpdated: true });
+    }
+
+    let authUserId = existingLink?.user_id || "";
     if (existingLink) {
       const { data: linkedUser, error: linkedUserError } = await adminClient.auth.admin.getUserById(existingLink.user_id);
       if (linkedUserError) throw linkedUserError;
-      authUser = linkedUser.user;
-    } else {
-      authUser = await findUserByPhone(adminClient, phone);
-    }
-    let createdUserId = "";
-
-    if (existingLink && !authUser) {
-      return respond(409, { error: "The linked Driver account no longer exists. Contact support to repair this role mapping." });
-    }
-    if (authUser) {
-      const { data: currentAccess, error: currentAccessError } = await adminClient
-        .from("fleet_access")
-        .select("owner_id, role, driver_id")
-        .eq("user_id", authUser.id)
-        .maybeSingle();
-      if (currentAccessError) throw currentAccessError;
-      if (currentAccess && (
-        currentAccess.owner_id !== userData.user.id ||
-        currentAccess.role !== "driver" ||
-        currentAccess.driver_id !== driverId
-      )) {
+      const currentEmail = linkedUser.user.email || "";
+      if (currentEmail && !/^driver-\d+@login\.fleetpro\.invalid$/.test(currentEmail)) {
+        return respond(409, { error: "This Driver account uses a different login email and cannot be managed automatically." });
+      }
+      const duplicateUser = await findUserByEmail(adminClient, loginEmail);
+      if (duplicateUser && duplicateUser.id !== linkedUser.user.id) {
         return respond(409, { error: "This phone number is already linked to another FleetPro account." });
       }
 
-      if (authUser.phone !== phone) {
-        const duplicateUser = await findUserByPhone(adminClient, phone);
-        if (duplicateUser && duplicateUser.id !== authUser.id) {
-          return respond(409, { error: "This phone number is already used by another account." });
-        }
-        const { data: updated, error: updateError } = await adminClient.auth.admin.updateUserById(
-          authUser.id,
-          { phone, phone_confirm: false },
-        );
-        if (updateError) throw updateError;
-        authUser = updated.user;
-      }
+      const { error: updateError } = await adminClient.auth.admin.updateUserById(
+        linkedUser.user.id,
+        { email: loginEmail, email_confirm: true, password },
+      );
+      if (updateError) throw updateError;
     } else {
+      const duplicateUser = await findUserByEmail(adminClient, loginEmail);
+      if (duplicateUser) {
+        return respond(409, { error: "This phone number is already linked to another FleetPro account." });
+      }
+
       const { data: created, error: createError } = await adminClient.auth.admin.createUser({
-        phone,
-        phone_confirm: false,
+        email: loginEmail,
+        email_confirm: true,
+        password,
       });
       if (createError) throw createError;
-      authUser = created.user;
-      createdUserId = authUser.id;
+      authUserId = created.user.id;
+
+      const { error: upsertError } = await adminClient
+        .from("fleet_access")
+        .upsert({
+          user_id: authUserId,
+          owner_id: userData.user.id,
+          role: "driver",
+          driver_id: driverId,
+        });
+      if (upsertError) {
+        await adminClient.auth.admin.deleteUser(authUserId);
+        throw upsertError;
+      }
     }
 
-    const { error: upsertError } = await adminClient
-      .from("fleet_access")
-      .upsert({
-        user_id: authUser.id,
-        owner_id: userData.user.id,
-        role: "driver",
-        driver_id: driverId,
-      });
-    if (upsertError) {
-      if (createdUserId) await adminClient.auth.admin.deleteUser(createdUserId);
-      throw upsertError;
-    }
-
-    const { error: otpError } = await userClient.auth.signInWithOtp({
-      phone,
-      options: { shouldCreateUser: false },
-    });
-    if (otpError) {
-      console.error("Driver account is provisioned, but the login SMS could not be sent.", otpError);
-      return respond(200, {
-        ok: true,
-        otpSent: false,
-        message: "Driver account is linked, but the SMS could not be sent. Check the project's SMS provider and rate limits, then invite again.",
-      });
-    }
-
-    return respond(200, {
-      ok: true,
-      otpSent: true,
-      message: `Driver account linked. A login code was sent to ${phone}.`,
-    });
+    return respond(200, { ok: true, message: "Driver password saved. Share it with the Driver securely." });
   } catch (error) {
-    console.error("Driver invitation failed.", error);
+    console.error("Driver account management failed.", error);
     return respond(500, {
-      error: error instanceof Error ? error.message : "Driver invitation failed unexpectedly.",
+      error: error instanceof Error ? error.message : "Driver account management failed unexpectedly.",
     });
   }
 });

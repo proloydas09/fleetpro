@@ -14,8 +14,6 @@ let fleetSavePending = false;
 let fleetTrackingEnabled = false;
 let fleetPasswordSetupPending = false;
 let fleetAuthMode = 'admin';
-let fleetPendingDriverPhone = '';
-let fleetDriverOtpSent = false;
 const fleetProxyCache = new WeakMap();
 
 function isBackendConfigured() {
@@ -60,7 +58,7 @@ function showAuthScreen(message = '') {
   document.getElementById('auth-driver-form').classList.add('hidden');
   document.getElementById('auth-password-form').classList.add('hidden');
   document.getElementById('auth-mode-toggle').classList.remove('hidden');
-  resetDriverOtpForm();
+  resetDriverSignInForm();
   setFleetAuthMode(fleetAuthMode);
   setAuthMessage(fleetAuthMode === 'admin' ? message : '');
   setDriverAuthMessage(fleetAuthMode === 'driver' ? message : '');
@@ -79,7 +77,7 @@ function showPasswordSetupScreen(message = '') {
 
 function setFleetAuthMode(mode) {
   if (!['admin', 'driver'].includes(mode)) return;
-  if (fleetAuthMode !== mode) resetDriverOtpForm();
+  if (fleetAuthMode !== mode) resetDriverSignInForm();
   fleetAuthMode = mode;
   const passwordForm = document.getElementById('auth-password-form');
   if (!passwordForm || !passwordForm.classList.contains('hidden')) return;
@@ -95,22 +93,11 @@ function setFleetAuthMode(mode) {
   setDriverAuthMessage('');
 }
 
-function resetDriverOtpForm() {
-  fleetPendingDriverPhone = '';
-  fleetDriverOtpSent = false;
-  const otpGroup = document.getElementById('auth-driver-otp-group');
-  const otpInput = document.getElementById('auth-driver-otp');
+function resetDriverSignInForm() {
   const phoneInput = document.getElementById('auth-driver-phone');
-  const submitButton = document.getElementById('auth-driver-submit');
-  const resendButton = document.getElementById('auth-driver-resend');
-  if (otpGroup) otpGroup.classList.add('hidden');
-  if (otpInput) {
-    otpInput.required = false;
-    otpInput.value = '';
-  }
+  const passwordInput = document.getElementById('auth-driver-password');
   if (phoneInput) phoneInput.disabled = false;
-  if (submitButton) submitButton.textContent = 'Send login code';
-  if (resendButton) resendButton.classList.add('hidden');
+  if (passwordInput) passwordInput.value = '';
 }
 
 function setAuthMessage(message, isError = false) {
@@ -349,75 +336,35 @@ function normalizeFleetPhone(value) {
   return '';
 }
 
-async function requestDriverOtp() {
+function driverLoginEmail(phone) {
+  return `driver-${phone.replace(/\D/g, '')}@login.fleetpro.invalid`;
+}
+
+async function signInDriver(event) {
+  event.preventDefault();
   const phone = normalizeFleetPhone(document.getElementById('auth-driver-phone').value);
   if (!phone) {
     setDriverAuthMessage('Enter a valid phone number. Indian numbers can use 10 digits or the +91 country code.', true);
     return;
   }
 
-  const button = document.getElementById('auth-driver-submit');
-  const phoneInput = document.getElementById('auth-driver-phone');
-  button.disabled = true;
-  setDriverAuthMessage('Sending SMS verification code…');
-  try {
-    const { error } = await fleetSupabase.auth.signInWithOtp({
-      phone,
-      options: { shouldCreateUser: false },
-    });
-    if (error) throw error;
-
-    fleetPendingDriverPhone = phone;
-    fleetDriverOtpSent = true;
-    phoneInput.disabled = true;
-    document.getElementById('auth-driver-otp-group').classList.remove('hidden');
-    document.getElementById('auth-driver-otp').required = true;
-    document.getElementById('auth-driver-submit').textContent = 'Verify code and sign in';
-    document.getElementById('auth-driver-resend').classList.remove('hidden');
-    setDriverAuthMessage(`A verification code was sent to ${phone}.`);
-    document.getElementById('auth-driver-otp').focus();
-  } catch (error) {
-    setDriverAuthMessage(`Could not send verification code: ${error.message}`, true);
-  } finally {
-    button.disabled = false;
-  }
-}
-
-async function handleDriverOtpSubmit(event) {
-  event.preventDefault();
-  if (!fleetDriverOtpSent) {
-    await requestDriverOtp();
-    return;
-  }
-
-  const token = document.getElementById('auth-driver-otp').value.trim();
-  if (!/^\d{6}$/.test(token)) {
-    setDriverAuthMessage('Enter the 6-digit verification code.', true);
-    return;
-  }
-
+  const password = document.getElementById('auth-driver-password').value;
   const button = document.getElementById('auth-driver-submit');
   button.disabled = true;
-  setDriverAuthMessage('Verifying code…');
+  setDriverAuthMessage('Signing in…');
   try {
-    const { data, error } = await fleetSupabase.auth.verifyOtp({
-      phone: fleetPendingDriverPhone,
-      token,
-      type: 'sms',
+    const { data, error } = await fleetSupabase.auth.signInWithPassword({
+      email: driverLoginEmail(phone),
+      password,
     });
     if (error) throw error;
-    if (!data.user) throw new Error('Verification succeeded but no account was returned.');
+    if (!data.user) throw new Error('Sign-in succeeded but no account was returned.');
     await startFleetSession(data.user);
   } catch (error) {
-    setDriverAuthMessage(`Could not verify code: ${error.message}`, true);
+    setDriverAuthMessage(`Sign-in failed: ${error.message}`, true);
   } finally {
     button.disabled = false;
   }
-}
-
-async function resendDriverOtp() {
-  if (!fleetDriverOtpSent) return;
-  await requestDriverOtp();
 }
 
 async function sendPasswordRecovery() {

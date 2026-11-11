@@ -38,8 +38,8 @@ The owner or operator needs to:
 - Role-based sign-in supports **Admin** and **Driver** accounts.
 - An Admin has access to all fleet-management features and to the fleet's complete data.
 - A Driver is linked to one existing driver record and can access only Trips and Expenses for their assigned car and own records.
-- The initial Admin account is provisioned in Supabase. An authenticated Admin can invite or re-invite a Driver from that Driver's profile; the protected `fleet_access` role mapping is created server-side.
-- Admins sign in with email and password. Drivers sign in with their registered phone number and a one-time SMS code; the shared sign-in screen provides separate Admin and Driver modes.
+- The initial Admin account is provisioned in Supabase. An authenticated Admin sets a Driver's initial password during Driver creation and can reset it from the Driver's profile; protected `fleet_access` role mappings are created server-side.
+- Admins sign in with email and password. Drivers sign in with their registered phone number and an Admin-set password; the shared sign-in screen provides separate Admin and Driver modes.
 
 ## 3. Product scope and navigation
 
@@ -58,11 +58,11 @@ The shared application shell includes:
 ### 4.1 Authentication and account data
 
 - Admins sign in with email and password and can request password recovery by email.
-- Drivers enter their registered phone number, request an SMS one-time code, and verify that code to sign in without a password.
+- Drivers enter their registered phone number and password to sign in. The phone number is normalized and mapped server-side to an internal, non-deliverable authentication email alias.
 - The sign-in UI does not allow public registration. A Driver account must first be provisioned by an Admin invitation.
-- Admins can invite or re-invite an active Driver with an active assigned car from the Driver profile. The server creates or links the phone-auth account, assigns the protected Driver role mapping, and requests an SMS login code.
-- The Driver invitation endpoint accepts only an authenticated Admin, validates that the Driver and assigned car belong to that Admin's fleet, and keeps the Supabase service-role key server-side.
-- Phone OTP sign-in disallows implicit account creation. Phone numbers are normalized to E.164; ten-digit Indian mobile numbers are interpreted with the +91 country code.
+- Admins set the Driver's initial password when creating the Driver record and can set a new password from the Driver profile at any time.
+- The Driver account endpoint accepts only an authenticated Admin, validates that the Driver belongs to that Admin's fleet, and keeps the Supabase service-role key server-side. It provisions the account, protects the role mapping, and applies password changes through Supabase Auth.
+- Driver phone numbers are normalized to E.164 for login alias generation; ten-digit Indian mobile numbers are interpreted with the +91 country code.
 - After successful Admin sign-in, FleetPro loads that Admin's fleet data. A first-time Admin receives an empty fleet and six zeroed monthly chart entries. Driver sign-in loads only the allowlisted Driver workspace projection.
 - Changes to the fleet data are saved automatically to the authenticated owner's Supabase record. The interface displays saving, saved, connection, and save-error states; a failed save can be retried.
 - The database applies row-level security so an authenticated owner can access only their own fleet record. Public/anonymous access is revoked.
@@ -110,7 +110,7 @@ Only active drivers are offered in the new-trip driver selector.
 
 ### Driver workspace and access
 
-- A Driver signs in with the phone number recorded on their FleetPro Driver profile and a one-time SMS code. An Admin sends the initial invitation from the Driver profile in FleetPro.
+- A Driver signs in with the phone number recorded on their FleetPro Driver profile and an Admin-set password. The initial password is entered during Driver creation; an Admin can reset it from the Driver profile.
 - The Driver workspace exposes only Trips and Expenses plus theme selection and sign-out. Dashboard, fleet, reports, documents, profile, notifications, and Admin expense approvals are not available.
 - A Driver can see only their assigned car, their own profile's non-sensitive operational fields, their own trips, and their own expenses.
 - Driver access to the fleet payload is provided by a narrowly scoped database function; the Driver cannot query or update `fleet_data` directly.
@@ -203,10 +203,10 @@ The owner-specific fleet dataset includes an owner profile, cars, drivers, trips
 
 ## 6. Privacy, security, and data handling
 
-- Admin authentication uses Supabase email/password; Driver authentication uses Supabase phone/SMS OTP.
+- Admin authentication uses Supabase email/password; Driver authentication uses a normalized phone number and password. Driver login aliases use a reserved non-deliverable email domain and are managed only by the server.
 - Each owner’s fleet payload is stored in the `fleet_data` table and protected by owner-based row-level security.
-- Role mappings are stored in `fleet_access`, are readable only by the mapped user, and cannot be written by application clients. The authenticated Admin-only `invite-driver` Edge Function uses server-side administrative credentials to create/link phone accounts and provision Driver roles.
-- SMS one-time-code sign-in only authenticates existing phone accounts; public signup remains disabled.
+- Role mappings are stored in `fleet_access`, are readable only by the mapped user, and cannot be written by application clients. The authenticated Admin-only `invite-driver` Edge Function uses server-side administrative credentials to create Driver accounts, assign roles, and set/reset passwords.
+- Public signup remains disabled. Driver passwords are sent only to the authenticated Edge Function over HTTPS and are never persisted in fleet data or returned by the function.
 - Driver database functions enforce role, assignment, and active-status checks server-side. They accept only the fields needed for trip/expense operations and assign the authenticated driver's identity, status, and car on the server.
 - The browser uses only the Supabase publishable/anon key; a service-role key or database password must never be placed in frontend code.
 - Customer Aadhaar files are stored in a private bucket with Admin-only owner-folder access policies and a 5 MB file-size limit.
@@ -218,7 +218,7 @@ The owner-specific fleet dataset includes an owner profile, cars, drivers, trips
 
 - FleetPro is a static web application and can be hosted on GitHub Pages or another compatible static host.
 - Supabase provides authentication, fleet-data persistence, and private storage for customer Aadhaar uploads.
-- The role migration [database/role-based-access.sql](./database/role-based-access.sql) is required after [database/setup.sql](./database/setup.sql), for both new and existing installations. Deploy the `invite-driver` Supabase Edge Function and configure an SMS provider before using in-app Driver invitations and phone sign-in.
+- The role migration [database/role-based-access.sql](./database/role-based-access.sql) is required after [database/setup.sql](./database/setup.sql), for both new and existing installations. Deploy the `invite-driver` Supabase Edge Function before Admins create Driver accounts or set/reset passwords. No SMS provider is required.
 - The app fails closed when an authenticated user has no valid role mapping. Demo mode is an unsaved Admin-only preview and does not provide role-based access.
 - When Supabase configuration is absent, or the Supabase client cannot load, FleetPro enters demo mode with sample data and clearly indicates that changes are not saved.
 - Durable multi-session fleet data requires a configured Supabase project and a working network connection.
@@ -239,12 +239,12 @@ The following are not supported by the current application:
 
 The current product behavior is considered aligned with this PRD when:
 
-1. A provisioned Admin can sign in with email/password; an invited Driver can sign in with phone/SMS OTP; an unmapped account cannot enter the app.
+1. A provisioned Admin can sign in with email/password; an Admin-provisioned Driver can sign in with phone/password; an unmapped account cannot enter the app.
 2. An Admin can access all existing fleet features and only their own fleet; a Driver sees Trips and Expenses only.
 3. A Driver can read only their assigned car, own operational driver record, own trips, and own expenses. Direct fleet-row and customer Aadhaar storage access are denied.
 4. A new Admin sees an empty fleet with six zeroed monthly chart entries; edits for a configured Admin account are automatically saved with visible save/error status.
 5. An Admin can create, view, edit, assign, and manage vehicle and driver records, including the supported status and identity/document fields.
-6. An Admin can invite or re-invite an active Driver with an active assigned car from the in-app Driver profile. The server creates the phone-auth account, maps it to that Driver record, and requests an SMS login code without exposing service-role credentials to the browser.
+6. An Admin can set a password while creating a Driver, then set/reset it from the Driver profile. The server creates the Driver account and role mapping without exposing service-role credentials or storing the password in fleet data.
 7. An Admin trip records the required route, distance, fare, car, driver, and starting odometer; valid optional customer, Aadhaar, end-odometer, and photo details can also be saved.
 8. A Driver can create a trip only for their own active assigned car. The server assigns the associated driver/car, validates trip fields, and updates fleet earnings atomically.
 9. A Driver cannot retrieve another driver's trips or customer Aadhaar fields/files, alter car/driver IDs in a trip submission, delete trips, or modify trip status.

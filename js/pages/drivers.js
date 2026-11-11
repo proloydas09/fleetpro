@@ -65,7 +65,6 @@ function renderDriverDetailContent(driverId) {
   const driver = getDriverById(driverId);
   if (!driver) return;
   const car = getCarForDriver(driverId);
-  const canInviteDriver = driver.status === 'active' && car?.status === 'active';
   const trips = getTripsByDriverId(driverId);
   const expenses = DB.expenses.filter(e => e.driverId === driverId);
   const totalTripFare = trips.reduce((s, t) => s + t.fare, 0);
@@ -227,8 +226,8 @@ function renderDriverDetailContent(driverId) {
 
       <!-- Actions -->
       <div style="padding:20px;display:flex;flex-direction:column;gap:12px;">
-        <button class="btn btn-outline btn-full" onclick="inviteDriverLogin('${driverId}')" ${canInviteDriver ? '' : 'disabled'}>
-          📩 Invite / Send Login Code
+        <button class="btn btn-outline btn-full" onclick="showDriverPasswordModal('${driverId}')">
+          🔐 Set / Reset Driver Password
         </button>
         <div style="display:flex;gap:12px;">
         <button class="btn btn-outline btn-full" onclick="showEditDriverModal('${driverId}')">✏️ Edit</button>
@@ -237,7 +236,7 @@ function renderDriverDetailContent(driverId) {
         </button>
         </div>
         <div style="font-size:12px;color:var(--text-muted);text-align:center;">
-          Drivers sign in with their registered phone number and an SMS code.
+          Drivers sign in with their registered phone number and a password.
         </div>
       </div>
     </div>
@@ -246,39 +245,79 @@ function renderDriverDetailContent(driverId) {
   scrollToTop();
 }
 
-async function inviteDriverLogin(driverId) {
-  if (!isFleetAdmin()) return;
+function showDriverPasswordModal(driverId) {
   const driver = getDriverById(driverId);
-  const car = driver ? getCarForDriver(driverId) : null;
-  if (!driver || driver.status !== 'active' || !car || car.status !== 'active') {
-    showToast('Assign this active Driver to an active car before inviting.', 'error');
+  if (!isFleetAdmin() || !driver) return;
+  openModal(`
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <h2 class="modal-title">Set Driver Password</h2>
+      <p class="modal-subtitle">${escapeHtml(driver.name)} signs in with ${escapeHtml(driver.phone)} and this password.</p>
+      <div class="form-group">
+        <label class="form-label" for="driver-password-new">New password *</label>
+        <input class="form-input" id="driver-password-new" type="password" autocomplete="new-password" minlength="8" maxlength="128" required />
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="driver-password-confirm">Confirm new password *</label>
+        <input class="form-input" id="driver-password-confirm" type="password" autocomplete="new-password" minlength="8" maxlength="128" required />
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">
+        Share the password with the Driver directly. It is not stored in FleetPro's driver record.
+      </div>
+      <div style="display:flex;gap:12px;margin-top:8px;">
+        <button class="btn btn-ghost btn-full" onclick="closeModal()">Cancel</button>
+        <button id="driver-password-submit" class="btn btn-primary btn-full" onclick="saveDriverPassword('${driverId}')">Save Password</button>
+      </div>
+    </div>
+  `);
+}
+
+async function saveDriverPassword(driverId) {
+  if (!isFleetAdmin() || !fleetSupabase || !fleetUser) {
+    showToast('Sign in to the connected Admin account to manage Driver passwords.', 'error');
     return;
   }
-  if (!fleetSupabase || !fleetUser) {
-    showToast('Sign in to the connected Admin account before inviting Drivers.', 'error');
+  const passwordInput = document.getElementById('driver-password-new');
+  const confirmInput = document.getElementById('driver-password-confirm');
+  const password = passwordInput.value;
+  if (password.length < 8 || password.length > 128) {
+    showToast('Driver passwords must be between 8 and 128 characters.', 'error');
+    passwordInput.focus();
+    return;
+  }
+  if (password !== confirmInput.value) {
+    showToast('The passwords do not match.', 'error');
+    confirmInput.focus();
     return;
   }
 
-  const button = document.querySelector(`#driver-detail-page button[onclick="inviteDriverLogin('${driverId}')"]`);
-  if (button) {
-    button.disabled = true;
-    button.textContent = 'Sending login code…';
-  }
+  const button = document.getElementById('driver-password-submit');
+  button.disabled = true;
+  button.textContent = 'Saving…';
   try {
-    const { data, error } = await fleetSupabase.functions.invoke('invite-driver', {
-      body: { driverId },
+    await invokeDriverAccountFunction({
+      action: 'set_password',
+      driverId,
+      password,
     });
-    if (error) throw error;
-    if (!data?.ok) throw new Error(data?.error || 'The Driver invitation was not completed.');
-    showToast(data.message, data.otpSent ? 'success' : 'error');
+    closeModal();
+    showDriverDetail(driverId);
+    showToast('Driver password saved. Share it directly with the Driver.', 'success');
   } catch (error) {
-    showToast(`Could not invite Driver: ${error.message}`, 'error');
+    showToast(`Could not save Driver password: ${error.message}`, 'error');
   } finally {
-    if (button) {
+    if (button.isConnected) {
       button.disabled = false;
-      button.textContent = '📩 Invite / Send Login Code';
+      button.textContent = 'Save Password';
     }
   }
+}
+
+async function invokeDriverAccountFunction(body) {
+  const { data, error } = await fleetSupabase.functions.invoke('invite-driver', { body });
+  if (error) throw error;
+  if (!data?.ok) throw new Error(data?.error || 'Driver account setup was not completed.');
+  return data;
 }
 
 function switchDriverTab(tab) {
@@ -315,6 +354,19 @@ function showAddDriverModal() {
         <label class="form-label">Phone Number *</label>
         <input class="form-input" id="new-drv-phone" type="tel" placeholder="10-digit phone number" />
       </div>
+      ${fleetSupabase && fleetUser && isFleetAdmin() ? `
+        <div class="form-group">
+          <label class="form-label" for="new-drv-password">Driver Password *</label>
+          <input class="form-input" id="new-drv-password" type="password" autocomplete="new-password" minlength="8" maxlength="128" />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="new-drv-password-confirm">Confirm Driver Password *</label>
+          <input class="form-input" id="new-drv-password-confirm" type="password" autocomplete="new-password" minlength="8" maxlength="128" />
+        </div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">
+          Give this password to the Driver securely. Admins can set a new password later.
+        </div>
+      ` : ''}
       <div class="form-group">
         <label class="form-label" for="new-drv-aadhaar">Aadhaar Number</label>
         <input class="form-input" id="new-drv-aadhaar" type="text" inputmode="numeric" autocomplete="off" maxlength="12" pattern="[0-9]{12}" placeholder="12-digit Aadhaar number" />
@@ -370,7 +422,7 @@ function showAddDriverModal() {
       </div>
       <div style="display:flex;gap:12px;margin-top:8px;">
         <button class="btn btn-ghost btn-full" onclick="closeModal()">Cancel</button>
-        <button class="btn btn-primary btn-full" onclick="addNewDriver()">Add Driver</button>
+        <button id="new-drv-submit" class="btn btn-primary btn-full" onclick="addNewDriver()">Add Driver</button>
       </div>
     </div>
   `);
@@ -499,10 +551,23 @@ function findDuplicateDriverIdentity({ phone, aadhaarNo, license }, excludeDrive
   return '';
 }
 
-function addNewDriver() {
+async function addNewDriver() {
   const name = document.getElementById('new-drv-name').value.trim();
   const phone = document.getElementById('new-drv-phone').value.trim();
   if (!name || !phone) { showToast('Name and phone are required', 'error'); return; }
+  const connectedAdmin = Boolean(fleetSupabase && fleetUser && isFleetAdmin());
+  const password = connectedAdmin ? document.getElementById('new-drv-password').value : '';
+  if (connectedAdmin) {
+    const confirmPassword = document.getElementById('new-drv-password-confirm').value;
+    if (password.length < 8 || password.length > 128) {
+      showToast('Driver passwords must be between 8 and 128 characters.', 'error');
+      return;
+    }
+    if (password !== confirmPassword) {
+      showToast('The Driver passwords do not match.', 'error');
+      return;
+    }
+  }
   const aadhaarNo = document.getElementById('new-drv-aadhaar').value.trim();
   if (aadhaarNo && !/^\d{12}$/.test(aadhaarNo)) {
     showToast('Aadhaar number must be exactly 12 digits', 'error');
@@ -514,6 +579,9 @@ function addNewDriver() {
     showToast(`${duplicateField} is already registered to another driver.`, 'error');
     return;
   }
+  const submitButton = document.getElementById('new-drv-submit');
+  submitButton.disabled = true;
+  submitButton.textContent = 'Adding Driver…';
   const driver = {
     id: generateId('d'),
     name,
@@ -537,12 +605,31 @@ function addNewDriver() {
     photo: window._drvPhotoB64 || null,
   };
   DB.drivers.push(driver);
+  let accountSetupError = null;
+  if (connectedAdmin) {
+    try {
+      await flushFleetSave();
+      await invokeDriverAccountFunction({
+        action: 'set_password',
+        driverId: driver.id,
+        password,
+      });
+    } catch (error) {
+      accountSetupError = error;
+    }
+  }
   window._drvPhotoB64 = null;
   window._drvLicensePhotoB64 = null;
   window._drvAadhaarCardB64 = null;
   closeModal();
-  showToast(`${name} added as driver! 👨‍✈️`, 'success');
   renderDrivers();
+  if (accountSetupError) {
+    showToast(`Driver added, but account setup failed: ${accountSetupError.message}. Open the Driver profile to set the password.`, 'error');
+  } else if (connectedAdmin) {
+    showToast(`${name} added. Driver password is set; share it securely.`, 'success');
+  } else {
+    showToast(`${name} added as driver! 👨‍✈️`, 'success');
+  }
 }
 
 function showEditDriverModal(driverId) {
@@ -575,7 +662,7 @@ function showEditDriverModal(driverId) {
   `);
 }
 
-function saveDriverEdit(driverId) {
+async function saveDriverEdit(driverId) {
   const d = getDriverById(driverId);
   const phone = document.getElementById('edit-drv-phone').value.trim() || d.phone;
   if (phone !== d.phone) {
@@ -589,11 +676,22 @@ function saveDriverEdit(driverId) {
       return;
     }
   }
+  const phoneChanged = phone !== d.phone;
   d.salary = parseInt(document.getElementById('edit-drv-salary').value) || d.salary;
   d.commissionPct = parseInt(document.getElementById('edit-drv-comm').value) || d.commissionPct;
   d.advance = parseInt(document.getElementById('edit-drv-advance').value) || 0;
   d.phone = phone;
   closeModal();
-  showToast('Driver updated!', 'success');
+  if (phoneChanged && fleetSupabase && fleetUser && isFleetAdmin()) {
+    try {
+      await flushFleetSave();
+      await invokeDriverAccountFunction({ action: 'update_phone', driverId });
+      showToast('Driver updated. The sign-in phone is updated if an account is linked.', 'success');
+    } catch (error) {
+      showToast(`Driver updated, but the sign-in phone could not be updated: ${error.message}. Reset the Driver password to synchronize it.`, 'error');
+    }
+  } else {
+    showToast('Driver updated!', 'success');
+  }
   showDriverDetail(driverId);
 }
