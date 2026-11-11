@@ -65,6 +65,7 @@ function renderDriverDetailContent(driverId) {
   const driver = getDriverById(driverId);
   if (!driver) return;
   const car = getCarForDriver(driverId);
+  const canInviteDriver = driver.status === 'active' && car?.status === 'active';
   const trips = getTripsByDriverId(driverId);
   const expenses = DB.expenses.filter(e => e.driverId === driverId);
   const totalTripFare = trips.reduce((s, t) => s + t.fare, 0);
@@ -225,16 +226,59 @@ function renderDriverDetailContent(driverId) {
       </div>
 
       <!-- Actions -->
-      <div style="padding:20px;display:flex;gap:12px;">
+      <div style="padding:20px;display:flex;flex-direction:column;gap:12px;">
+        <button class="btn btn-outline btn-full" onclick="inviteDriverLogin('${driverId}')" ${canInviteDriver ? '' : 'disabled'}>
+          📩 Invite / Send Login Code
+        </button>
+        <div style="display:flex;gap:12px;">
         <button class="btn btn-outline btn-full" onclick="showEditDriverModal('${driverId}')">✏️ Edit</button>
         <button class="btn btn-${driver.status==='active'?'ghost':'primary'} btn-full" onclick="toggleDriverStatus('${driverId}')">
           ${driver.status === 'active' ? '⏸️ Deactivate' : '▶️ Activate'}
         </button>
+        </div>
+        <div style="font-size:12px;color:var(--text-muted);text-align:center;">
+          Drivers sign in with their registered phone number and an SMS code.
+        </div>
       </div>
     </div>
   `;
   document.getElementById('page-container').innerHTML = html;
   scrollToTop();
+}
+
+async function inviteDriverLogin(driverId) {
+  if (!isFleetAdmin()) return;
+  const driver = getDriverById(driverId);
+  const car = driver ? getCarForDriver(driverId) : null;
+  if (!driver || driver.status !== 'active' || !car || car.status !== 'active') {
+    showToast('Assign this active Driver to an active car before inviting.', 'error');
+    return;
+  }
+  if (!fleetSupabase || !fleetUser) {
+    showToast('Sign in to the connected Admin account before inviting Drivers.', 'error');
+    return;
+  }
+
+  const button = document.querySelector(`#driver-detail-page button[onclick="inviteDriverLogin('${driverId}')"]`);
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'Sending login code…';
+  }
+  try {
+    const { data, error } = await fleetSupabase.functions.invoke('invite-driver', {
+      body: { driverId },
+    });
+    if (error) throw error;
+    if (!data?.ok) throw new Error(data?.error || 'The Driver invitation was not completed.');
+    showToast(data.message, data.otpSent ? 'success' : 'error');
+  } catch (error) {
+    showToast(`Could not invite Driver: ${error.message}`, 'error');
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = '📩 Invite / Send Login Code';
+    }
+  }
 }
 
 function switchDriverTab(tab) {

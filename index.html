@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles/main.css?v=20261110c" />
+  <link rel="stylesheet" href="styles/main.css?v=20261112a" />
   <link rel="stylesheet" href="styles/components.css" />
   <link rel="stylesheet" href="styles/pages.css" />
 </head>
@@ -31,6 +31,11 @@
     </div>
 
     <section id="auth-screen" class="auth-screen hidden" aria-labelledby="auth-login-title">
+      <div class="auth-mode-toggle" id="auth-mode-toggle" role="tablist" aria-label="Sign-in method">
+        <button class="auth-mode-btn active" id="auth-mode-admin" type="button" role="tab" aria-selected="true" onclick="setFleetAuthMode('admin')">Admin</button>
+        <button class="auth-mode-btn" id="auth-mode-driver" type="button" role="tab" aria-selected="false" onclick="setFleetAuthMode('driver')">Driver</button>
+      </div>
+
       <form id="auth-login-form" class="auth-card" onsubmit="signIn(event)">
         <div class="auth-logo">🚗</div>
         <h1 id="auth-login-title">FleetPro</h1>
@@ -47,6 +52,24 @@
         <button id="auth-submit" class="btn btn-primary btn-full" type="submit">Sign in</button>
         <button class="auth-link" type="button" onclick="sendPasswordRecovery()">Forgot or set password?</button>
         <p class="auth-footnote">Accounts are provisioned by the administrator. Public registration is disabled.</p>
+      </form>
+
+      <form id="auth-driver-form" class="auth-card hidden" onsubmit="handleDriverOtpSubmit(event)">
+        <div class="auth-logo">🚗</div>
+        <h1>Driver sign in</h1>
+        <p class="auth-subtitle">Use your registered phone number to receive a login code.</p>
+        <div class="form-group">
+          <label class="form-label" for="auth-driver-phone">Phone number</label>
+          <input class="form-input" id="auth-driver-phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" placeholder="+91 98765 43210" required />
+        </div>
+        <div class="form-group hidden" id="auth-driver-otp-group">
+          <label class="form-label" for="auth-driver-otp">SMS verification code</label>
+          <input class="form-input" id="auth-driver-otp" name="otp" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="6-digit code" />
+        </div>
+        <p id="auth-driver-message" class="auth-message" role="status" aria-live="polite"></p>
+        <button id="auth-driver-submit" class="btn btn-primary btn-full" type="submit">Send login code</button>
+        <button id="auth-driver-resend" class="auth-link hidden" type="button" onclick="resendDriverOtp()">Send a new code</button>
+        <p class="auth-footnote">Driver accounts are invited by your fleet Admin. Public registration is disabled.</p>
       </form>
 
       <form id="auth-password-form" class="auth-card hidden" onsubmit="setFleetPassword(event)">
@@ -145,10 +168,10 @@
   <script src="js/charts.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/backend-config.js?v=20261110c"></script>
-  <script src="js/backend.js?v=20261111r"></script>
+  <script src="js/backend.js?v=20261112a"></script>
   <script src="js/pages/dashboard.js?v=20261104b"></script>
   <script src="js/pages/fleet.js?v=20261104b"></script>
-  <script src="js/pages/drivers.js?v=20261111"></script>
+  <script src="js/pages/drivers.js?v=20261112a"></script>
   <script src="js/pages/trips.js?v=20261111r"></script>
   <script src="js/pages/reports.js"></script>
   <script src="js/pages/expenses.js?v=20261111r"></script>
