@@ -74,6 +74,7 @@ function renderDashboard() {
           <div class="list-title">${escapeHtml(t.from)} → ${escapeHtml(t.to)}</div>
           <div class="list-sub">${car ? `${escapeHtml(car.plate)} • ` : ''}${driver ? escapeHtml(driver.name) : 'No driver assigned'} • ${t.distance} km</div>
           <div style="font-size:11px;color:var(--accent-orange);font-weight:600;margin-top:3px;">● CURRENT TRIP</div>
+          ${driver ? `<div data-driver-location="${escapeHtml(driver.id)}" style="margin-top:5px;">${renderDriverLocation(driver.id)}</div>` : ''}
         </div>
         ${driver?.phone ? `<a class="btn btn-sm btn-outline" href="tel:${driver.phone.replace(/[^\d+]/g, '')}" onclick="event.stopPropagation()" aria-label="Call ${escapeHtml(driver.name)}">Call</a>` : ''}
       </div>
@@ -165,7 +166,7 @@ function renderDashboard() {
       </div>
       <div style="padding:0 20px 4px;">
         ${currentTripsHtml || '<div class="card" style="margin-bottom:16px;color:var(--text-muted);font-size:14px;">No current trips. New trips you log will appear here.</div>'}
-        ${currentTrips.length ? '<div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">Live GPS location is not available yet.</div>' : ''}
+        ${currentTrips.length ? '<div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">Driver locations refresh every 30 seconds. Drivers must be signed in and allow location access.</div>' : ''}
       </div>
 
       <!-- Earnings Chart -->

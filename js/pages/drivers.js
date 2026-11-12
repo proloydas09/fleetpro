@@ -50,6 +50,7 @@ function renderDrivers() {
               <div style="text-align:right;">
                 ${statusBadge(d.status)}
                 <div style="font-size:13px;font-weight:700;color:var(--accent-green);margin-top:4px;">${formatCurrency(d.salary)}/mo</div>
+                <div data-driver-location="${escapeHtml(d.id)}" style="margin-top:6px;">${renderDriverLocation(d.id)}</div>
               </div>
             </div>
           `;
@@ -112,6 +113,7 @@ function renderDriverDetailContent(driverId) {
           <span class="badge badge-blue">⭐ ${driver.rating} Rating</span>
           <span class="badge badge-purple">${driver.totalTrips} Total Trips</span>
         </div>
+        <div data-driver-location="${escapeHtml(driver.id)}" style="margin-top:10px;">${renderDriverLocation(driver.id)}</div>
       </div>
 
       <!-- Stats -->

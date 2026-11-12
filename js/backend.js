@@ -6,6 +6,7 @@ let fleetSupabase = null;
 let fleetUser = null;
 let fleetRole = null;
 let fleetDriverId = null;
+let fleetOwnerId = null;
 let fleetUpdatedAt = null;
 let fleetSyncedPayload = null;
 let fleetSaveTimer = null;
@@ -14,6 +15,13 @@ let fleetSavePending = false;
 let fleetTrackingEnabled = false;
 let fleetPasswordSetupPending = false;
 let fleetAuthMode = 'admin';
+let fleetDriverLocations = {};
+let fleetLocationWatchId = null;
+let fleetLocationPollTimer = null;
+let fleetLocationWriteTimer = null;
+let fleetLocationWriteInProgress = false;
+let fleetPendingLocation = null;
+let fleetLastLocationWriteAt = 0;
 const fleetProxyCache = new WeakMap();
 
 function isBackendConfigured() {
@@ -27,6 +35,150 @@ function isFleetAdmin() {
 
 function isFleetDriver() {
   return fleetRole === 'driver';
+}
+
+function getDriverLocation(driverId) {
+  return fleetDriverLocations[driverId] || null;
+}
+
+function renderDriverLocation(driverId) {
+  const location = getDriverLocation(driverId);
+  if (!location) {
+    return '<span style="font-size:11px;color:var(--text-muted);">Location not shared yet</span>';
+  }
+
+  const latitude = Number(location.latitude);
+  const longitude = Number(location.longitude);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude) ||
+      latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+    return '<span style="font-size:11px;color:var(--text-muted);">Location data is invalid</span>';
+  }
+
+  const recordedAt = new Date(location.recorded_at);
+  const ageMs = Date.now() - recordedAt.getTime();
+  const isLive = Number.isFinite(ageMs) && ageMs >= 0 && ageMs <= 2 * 60 * 1000;
+  const timeLabel = Number.isFinite(recordedAt.getTime())
+    ? recordedAt.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
+    : 'Time unavailable';
+  const mapUrl = `https://www.google.com/maps?q=${latitude},${longitude}`;
+  return `
+    <a href="${mapUrl}" target="_blank" rel="noopener noreferrer"
+      onclick="event.stopPropagation()"
+      style="font-size:12px;color:var(--accent-blue);text-decoration:none;font-weight:600;">
+      ${isLive ? '● Live location' : 'Last location'} ↗
+    </a>
+    <span style="display:block;font-size:11px;color:var(--text-muted);margin-top:2px;">${escapeHtml(timeLabel)}</span>
+  `;
+}
+
+function stopDriverLocationTracking() {
+  if (fleetLocationWatchId !== null && navigator.geolocation) {
+    navigator.geolocation.clearWatch(fleetLocationWatchId);
+  }
+  fleetLocationWatchId = null;
+  clearTimeout(fleetLocationWriteTimer);
+  fleetLocationWriteTimer = null;
+  fleetLocationWriteInProgress = false;
+  fleetPendingLocation = null;
+  fleetLastLocationWriteAt = 0;
+}
+
+function stopDriverLocationPolling() {
+  clearInterval(fleetLocationPollTimer);
+  fleetLocationPollTimer = null;
+}
+
+async function refreshDriverLocations() {
+  if (!isFleetAdmin() || !fleetSupabase || !fleetOwnerId) return;
+  const { data, error } = await fleetSupabase
+    .from('driver_locations')
+    .select('driver_id, latitude, longitude, accuracy, recorded_at')
+    .eq('owner_id', fleetOwnerId);
+  if (error) throw error;
+
+  fleetDriverLocations = (data || []).reduce((locations, location) => {
+    locations[location.driver_id] = location;
+    return locations;
+  }, {});
+  document.querySelectorAll('[data-driver-location]').forEach(element => {
+    element.innerHTML = renderDriverLocation(element.dataset.driverLocation);
+  });
+}
+
+function startDriverLocationPolling() {
+  stopDriverLocationPolling();
+  refreshDriverLocations().catch(error => {
+    setConnectionStatus(`Could not load Driver locations: ${error.message}`, 'warning');
+  });
+  fleetLocationPollTimer = setInterval(() => {
+    refreshDriverLocations().catch(error => {
+      setConnectionStatus(`Could not refresh Driver locations: ${error.message}`, 'warning');
+    });
+  }, 30000);
+}
+
+function queueDriverLocation(position) {
+  fleetPendingLocation = {
+    latitude: position.coords.latitude,
+    longitude: position.coords.longitude,
+    accuracy: position.coords.accuracy,
+    recorded_at: new Date(position.timestamp || Date.now()).toISOString(),
+  };
+  clearTimeout(fleetLocationWriteTimer);
+  const delay = Math.max(0, 15000 - (Date.now() - fleetLastLocationWriteAt));
+  fleetLocationWriteTimer = setTimeout(() => {
+    flushDriverLocation().catch(error => {
+      setConnectionStatus(`Could not share Driver location: ${error.message}`, 'warning');
+    });
+  }, delay);
+}
+
+async function flushDriverLocation() {
+  if (fleetLocationWriteInProgress || !fleetPendingLocation || !isFleetDriver() ||
+      !fleetSupabase || !fleetUser || !fleetOwnerId || !fleetDriverId) return;
+
+  const location = fleetPendingLocation;
+  fleetPendingLocation = null;
+  fleetLocationWriteInProgress = true;
+  try {
+    const { error } = await fleetSupabase
+      .from('driver_locations')
+      .upsert({
+        ...location,
+        owner_id: fleetOwnerId,
+        driver_id: fleetDriverId,
+        user_id: fleetUser.id,
+      }, { onConflict: 'owner_id,driver_id' });
+    if (error) throw error;
+    fleetLastLocationWriteAt = Date.now();
+    setConnectionStatus('Location sharing is on while you are signed in.', 'connected');
+  } finally {
+    fleetLocationWriteInProgress = false;
+    if (fleetPendingLocation) queueDriverLocation({ coords: fleetPendingLocation, timestamp: Date.now() });
+  }
+}
+
+function startDriverLocationTracking() {
+  stopDriverLocationTracking();
+  if (!navigator.geolocation) {
+    setConnectionStatus('Location is unavailable in this browser. Enable a supported browser to share your location.', 'warning');
+    showToast('This browser does not support location sharing.', 'error');
+    return;
+  }
+
+  fleetLocationWatchId = navigator.geolocation.watchPosition(
+    queueDriverLocation,
+    error => {
+      const message = error.code === error.PERMISSION_DENIED
+        ? 'Location permission is off. Allow location access in browser settings to share your position with the Admin.'
+        : error.code === error.POSITION_UNAVAILABLE
+          ? 'Your current location is unavailable. Check device location settings and try again.'
+          : 'Could not get your location. Check your connection and device location settings.';
+      setConnectionStatus(message, 'warning');
+      showToast(message, 'error');
+    },
+    { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 }
+  );
 }
 
 function initializeFleetBackend() {
@@ -265,7 +417,11 @@ async function loadDriverFleetData() {
 }
 
 async function startFleetSession(user) {
+  stopDriverLocationTracking();
+  stopDriverLocationPolling();
   fleetUser = user;
+  fleetOwnerId = null;
+  fleetDriverLocations = {};
   setAuthMessage('');
   try {
     const { data: access, error } = await fleetSupabase
@@ -280,12 +436,14 @@ async function startFleetSession(user) {
 
     fleetRole = access.role;
     fleetDriverId = access.role === 'driver' ? access.driver_id : null;
+    fleetOwnerId = access.owner_id;
     if (isFleetAdmin()) {
       if (access.owner_id !== user.id || access.driver_id) {
         throw new Error('The administrator account is not linked to its own fleet.');
       }
       await loadFleetData(user.id);
       setConnectionStatus('Connected — changes sync to your private account.', 'connected');
+      startDriverLocationPolling();
     } else {
       if (!fleetDriverId || access.owner_id === user.id) {
         throw new Error('This driver account is not linked to a fleet driver record.');
@@ -294,10 +452,14 @@ async function startFleetSession(user) {
       setConnectionStatus('Driver account — only your assigned car, trips, and expenses are available.', 'connected');
     }
     showFleetApp();
+    if (isFleetDriver()) startDriverLocationTracking();
   } catch (error) {
     fleetUser = null;
     fleetRole = null;
     fleetDriverId = null;
+    fleetOwnerId = null;
+    stopDriverLocationTracking();
+    stopDriverLocationPolling();
     const message = `Could not load FleetPro access: ${error.message}`;
     try {
       const { error: signOutError } = await fleetSupabase.auth.signOut();
@@ -448,6 +610,9 @@ async function signOutFleet() {
     fleetUser = null;
     fleetRole = null;
     fleetDriverId = null;
+    fleetOwnerId = null;
+    stopDriverLocationTracking();
+    stopDriverLocationPolling();
     fleetUpdatedAt = null;
     fleetSyncedPayload = null;
     showAuthScreen('You have been signed out.');
@@ -636,6 +801,10 @@ async function initializeFleetApp() {
       fleetUser = null;
       fleetRole = null;
       fleetDriverId = null;
+      fleetOwnerId = null;
+      fleetDriverLocations = {};
+      stopDriverLocationTracking();
+      stopDriverLocationPolling();
       fleetUpdatedAt = null;
       fleetSyncedPayload = null;
       showAuthScreen();

@@ -6,10 +6,11 @@ FleetPro is a static web app. Supabase provides Admin email/password authenticat
 
 1. Create a Supabase project and keep its database password private.
 2. In **SQL Editor**, run [`database/setup.sql`](./database/setup.sql), then [`database/role-based-access.sql`](./database/role-based-access.sql). The role migration is required for new and existing installations. It grants the `service_role` only the fleet-table permissions required by the Driver account Edge Function; client roles cannot write role mappings.
-3. If an existing installation has not configured customer Aadhaar uploads, run [`database/trip-customer-aadhaar.sql`](./database/trip-customer-aadhaar.sql) after the role migration.
-4. Keep the **Email** auth provider enabled. Driver accounts use password authentication and an internal, non-deliverable email alias derived from the phone number; the Driver enters only their phone number and password. Phone/SMS authentication and an SMS provider are not required.
-5. In **Authentication** settings, disable public sign-ups. Driver accounts are provisioned by an Admin-only Edge Function; the sign-in flow does not create uninvited accounts.
-6. Copy the Supabase **Project URL** and **publishable key** into `url` and `anonKey` in [`js/backend-config.js`](./js/backend-config.js). These browser values are public. Never put a `service_role` secret in frontend code or commit it to the repository.
+3. Run [`database/driver-location.sql`](./database/driver-location.sql) after the role migration to enable secure Driver location sharing.
+4. If an existing installation has not configured customer Aadhaar uploads, run [`database/trip-customer-aadhaar.sql`](./database/trip-customer-aadhaar.sql) after the role migration.
+5. Keep the **Email** auth provider enabled. Driver accounts use password authentication and an internal, non-deliverable email alias derived from the phone number; the Driver enters only their phone number and password. Phone/SMS authentication and an SMS provider are not required.
+6. In **Authentication** settings, disable public sign-ups. Driver accounts are provisioned by an Admin-only Edge Function; the sign-in flow does not create uninvited accounts.
+7. Copy the Supabase **Project URL** and **publishable key** into `url` and `anonKey` in [`js/backend-config.js`](./js/backend-config.js). These browser values are public. Never put a `service_role` secret in frontend code or commit it to the repository.
 
 ## 2. Provision the initial Admin
 
@@ -54,7 +55,7 @@ Supabase supplies `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROL
 
 Ten-digit Indian mobile numbers are treated as `+91`; other numbers should be entered with their country code. Driver login aliases are generated on the server from the normalized phone number and are not real email addresses. Changing a Driver's phone updates the login alias for an already-linked account. Driver account and role provisioning/password updates are handled by the Edge Function, not by client-side SQL or user-editable metadata. Drivers without an active assigned car cannot enter their workspace or submit trips/expenses.
 
-Drivers receive only their assigned car, their own trips, and their own expenses. Driver trips update fleet earnings; Driver expenses are submitted as pending for Admin review. The Edge Function must be deployed before Admins can create Driver accounts or set/reset passwords.
+Drivers receive only their assigned car, their own trips, and their own expenses. After sign-in, the browser asks Drivers for location permission and shares their location while they remain signed in; location is stored separately and only the Driver's fleet Admin can read it. Admins see the latest location and its timestamp on the Dashboard's current trips and on Driver profiles. Location sharing requires HTTPS (or localhost) and an explicit browser/device permission. Browser geolocation runs only while the app is open; it is not background tracking after closing the app or signing out. Driver trips update fleet earnings; Driver expenses are submitted as pending for Admin review. The Edge Function must be deployed before Admins can create Driver accounts or set/reset passwords.
 
 ## 5. Deploy to GitHub Pages
 

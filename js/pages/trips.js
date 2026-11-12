@@ -151,7 +151,8 @@ function showTripDetail(tripId) {
           <div class="doc-icon">📍</div>
           <div class="doc-info">
             <div class="doc-name">Current Trip</div>
-            <div class="doc-exp">In progress • Live GPS location is not available</div>
+            <div class="doc-exp">In progress</div>
+            <div ${driver ? `data-driver-location="${escapeHtml(driver.id)}"` : ''} style="margin-top:4px;">${driver ? renderDriverLocation(driver.id) : '<span style="font-size:11px;color:var(--text-muted);">No driver assigned</span>'}</div>
           </div>
         </div>
       ` : ''}
