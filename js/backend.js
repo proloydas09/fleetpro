@@ -141,14 +141,12 @@ async function flushDriverLocation() {
   fleetPendingLocation = null;
   fleetLocationWriteInProgress = true;
   try {
-    const { error } = await fleetSupabase
-      .from('driver_locations')
-      .upsert({
-        ...location,
-        owner_id: fleetOwnerId,
-        driver_id: fleetDriverId,
-        user_id: fleetUser.id,
-      }, { onConflict: 'owner_id,driver_id' });
+    const { error } = await fleetSupabase.rpc('driver_update_location', {
+      p_latitude: location.latitude,
+      p_longitude: location.longitude,
+      p_accuracy: location.accuracy,
+      p_recorded_at: location.recorded_at,
+    });
     if (error) throw error;
     fleetLastLocationWriteAt = Date.now();
     setConnectionStatus('Location sharing is on while you are signed in.', 'connected');
